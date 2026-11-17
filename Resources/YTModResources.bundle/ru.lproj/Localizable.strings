@@ -1,0 +1,37 @@
+"Done" = "Готово";
+"Cancel" = "Отмена";
+"OK" = "ОК";
+
+"Ads" = "Реклама";
+"Playback" = "Воспроизведение";
+"UI" = "Интерфейс";
+"Downloader" = "Загрузчик";
+"Language" = "Язык";
+"System language" = "Системный язык";
+
+"Block ads" = "Блокировать рекламу";
+"Hide branding overlays" = "Скрывать брендовые оверлеи";
+"Background playback" = "Фоновое воспроизведение";
+"Picture-in-Picture" = "Картинка-в-картинке";
+"Hide Shorts tab" = "Скрыть вкладку Shorts";
+"Downloader button" = "Кнопка загрузки";
+
+"Download" = "Скачать";
+"Pick a format" = "Выберите формат";
+"Audio-only (%@)" = "Только аудио (%@)";
+"muxed_fmt" = "%@p (muxed, %@)";
+"muxed_mp4_fmt" = "%@p (mux, mp4)";
+"Share (system)" = "Поделиться (система)";
+
+"Preparing…" = "Подготовка…";
+"Preparing video…" = "Подготовка видео…";
+"Downloading video…" = "Загрузка видео…";
+"Downloading audio…" = "Загрузка аудио…";
+"Muxing…" = "Склейка…";
+"Downloading…" = "Загрузка…";
+
+"Saved" = "Сохранено";
+"Save failed" = "Не удалось сохранить";
+"Video added to Photos." = "Видео добавлено в Фото.";
+"Download failed" = "Загрузка не удалась";
+"Failed" = "Ошибка";

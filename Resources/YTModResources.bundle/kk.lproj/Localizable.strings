@@ -1,0 +1,37 @@
+"Done" = "Дайын";
+"Cancel" = "Болдырмау";
+"OK" = "ОК";
+
+"Ads" = "Жарнама";
+"Playback" = "Ойнату";
+"UI" = "Интерфейс";
+"Downloader" = "Жүктеуіш";
+"Language" = "Тіл";
+"System language" = "Жүйе тілі";
+
+"Block ads" = "Жарнаманы бұғаттау";
+"Hide branding overlays" = "Брендтік қабаттарды жасыру";
+"Background playback" = "Фондық ойнату";
+"Picture-in-Picture" = "Сурет-ішіндегі-сурет";
+"Hide Shorts tab" = "Shorts қойындысын жасыру";
+"Downloader button" = "Жүктеу түймесі";
+
+"Download" = "Жүктеп алу";
+"Pick a format" = "Форматты таңдаңыз";
+"Audio-only (%@)" = "Тек аудио (%@)";
+"muxed_fmt" = "%@p (muxed, %@)";
+"muxed_mp4_fmt" = "%@p (mux, mp4)";
+"Share (system)" = "Бөлісу (жүйе)";
+
+"Preparing…" = "Дайындалуда…";
+"Preparing video…" = "Видео дайындалуда…";
+"Downloading video…" = "Видео жүктелуде…";
+"Downloading audio…" = "Аудио жүктелуде…";
+"Muxing…" = "Біріктіру…";
+"Downloading…" = "Жүктелуде…";
+
+"Saved" = "Сақталды";
+"Save failed" = "Сақтау сәтсіз";
+"Video added to Photos." = "Видео Суреттерге қосылды.";
+"Download failed" = "Жүктеу сәтсіз";
+"Failed" = "Қате";

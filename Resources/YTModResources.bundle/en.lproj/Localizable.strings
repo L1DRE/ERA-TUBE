@@ -1,0 +1,37 @@
+"Done" = "Done";
+"Cancel" = "Cancel";
+"OK" = "OK";
+
+"Ads" = "Ads";
+"Playback" = "Playback";
+"UI" = "UI";
+"Downloader" = "Downloader";
+"Language" = "Language";
+"System language" = "System language";
+
+"Block ads" = "Block ads";
+"Hide branding overlays" = "Hide branding overlays";
+"Background playback" = "Background playback";
+"Picture-in-Picture" = "Picture-in-Picture";
+"Hide Shorts tab" = "Hide Shorts tab";
+"Downloader button" = "Downloader button";
+
+"Download" = "Download";
+"Pick a format" = "Pick a format";
+"Audio-only (%@)" = "Audio-only (%@)";
+"muxed_fmt" = "%@p (muxed, %@)";
+"muxed_mp4_fmt" = "%@p (mux, mp4)";
+"Share (system)" = "Share (system)";
+
+"Preparing…" = "Preparing…";
+"Preparing video…" = "Preparing video…";
+"Downloading video…" = "Downloading video…";
+"Downloading audio…" = "Downloading audio…";
+"Muxing…" = "Muxing…";
+"Downloading…" = "Downloading…";
+
+"Saved" = "Saved";
+"Save failed" = "Save failed";
+"Video added to Photos." = "Video added to Photos.";
+"Download failed" = "Download failed";
+"Failed" = "Failed";

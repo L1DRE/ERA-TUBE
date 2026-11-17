@@ -1,0 +1,121 @@
+name: Build YTMod IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      ipa_url:
+        description: "Direct URL to a DECRYPTED YouTube IPA (required)."
+        required: true
+      yt_version:
+        description: "YouTube version label (for release notes)."
+        required: false
+        default: "unknown"
+
+env:
+  THEOS: /opt/theos
+
+jobs:
+  build:
+    name: Build and repack IPA
+    runs-on: macos-14
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ---------- Theos ----------
+      - name: Install Theos
+        run: |
+          set -eux
+          brew install ldid xz
+          git clone --recursive https://github.com/theos/theos.git "$THEOS"
+          curl -L -o /tmp/toolchain.tar.xz \
+            https://github.com/kabiroberai/swift-toolchain-linux/releases/latest/download/swift-5.9-ubuntu22.04.tar.xz || true
+          curl -L -o /tmp/iPhoneOS16.5.sdk.tar.xz \
+            https://github.com/theos/sdks/releases/download/master-1a1cedc/iPhoneOS16.5.sdk.tar.xz
+          mkdir -p "$THEOS/sdks"
+          tar -xf /tmp/iPhoneOS16.5.sdk.tar.xz -C "$THEOS/sdks"
+
+      - name: Build tweak (.deb)
+        run: |
+          set -eux
+          export THEOS=/opt/theos
+          make clean
+          make package FINALPACKAGE=1
+          ls packages/
+
+      # ---------- Fetch YouTube IPA ----------
+      - name: Download YouTube IPA
+        run: |
+          set -eux
+          mkdir -p work
+          curl -L --fail -o work/YouTube.ipa "${{ github.event.inputs.ipa_url }}"
+          file work/YouTube.ipa
+
+      - name: Patch Info.plist (Photos usage string)
+        run: |
+          set -eux
+          cd work
+          unzip -q YouTube.ipa -d ipa_root
+          APP=$(ls -d ipa_root/Payload/*.app | head -n1)
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string 'Save downloaded videos'" "$APP/Info.plist" || \
+          /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryAddUsageDescription 'Save downloaded videos'" "$APP/Info.plist"
+          (cd ipa_root && zip -qr ../YouTube-patched.ipa Payload)
+          mv YouTube-patched.ipa YouTube.ipa
+          rm -rf ipa_root
+
+      # ---------- Extra tweaks (optional, auto-skipped on 404) ----------
+      - name: Fetch extension tweaks
+        run: |
+          set -eux
+          mkdir -p extras
+          urls=(
+            "https://github.com/PoomSmart/YouTubeSponsorBlock/releases/latest/download/com.ps.yt.sponsorblock.deb"
+            "https://github.com/PoomSmart/YouTubeHeader/releases/latest/download/com.ps.ytheader.deb"
+            "https://github.com/PoomSmart/YouPiP/releases/latest/download/com.ps.youpip.deb"
+            "https://github.com/PoomSmart/YTUHD/releases/latest/download/com.ps.ytuhd.deb"
+            "https://github.com/PoomSmart/Return-YouTube-Dislikes/releases/latest/download/com.ps.yt.rtyd.deb"
+          )
+          for u in "${urls[@]}"; do
+            n=$(basename "$u")
+            curl -L -o "extras/$n" "$u" || echo "skip $n"
+          done
+          ls extras/ || true
+
+      # ---------- cyan: inject debs into IPA ----------
+      - name: Install cyan (pyzule-rw)
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --user pyzule-rw
+
+      - name: Repack IPA with tweaks
+        run: |
+          set -eux
+          export PATH="$HOME/Library/Python/3.11/bin:$HOME/.local/bin:$PATH"
+          TWEAK_DEB=$(ls packages/*.deb | head -n1)
+          EXTRA_DEBS=$(find extras -name '*.deb' -print 2>/dev/null | tr '\n' ' ')
+          cyan \
+            -duwsgq \
+            -i work/YouTube.ipa \
+            -o YTMod.ipa \
+            -n "YTMod" \
+            -b com.ytmod.youtube \
+            -f $TWEAK_DEB $EXTRA_DEBS Resources/YTModResources.bundle
+          ls -lh YTMod.ipa
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: YTMod-ipa
+          path: YTMod.ipa
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: YTMod.ipa
+          body: |
+            YTMod build for YouTube ${{ github.event.inputs.yt_version }}.
+            Sideload with AltStore / Sideloadly / TrollStore.

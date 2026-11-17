@@ -1,0 +1,9 @@
+Package: com.ytmod.tweak
+Name: YTMod
+Version: 0.1.0
+Architecture: iphoneos-arm
+Description: YouTube mod: ads off, background/PiP, downloads, UI tweaks, SponsorBlock, Return Dislike.
+Maintainer: you
+Author: you
+Section: Tweaks
+Depends: mobilesubstrate (>= 0.9.5000), firmware (>= 14.0)
