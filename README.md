@@ -1,6 +1,6 @@
 # YTMod
 
-Sideload-friendly YouTube mod for iOS (стиль uYouPlus): свой Theos-твик + GitHub Actions, который впекает его и набор публичных расширений в твой **расшифрованный** YouTube IPA.
+Мод YouTube для iOS (стиль uYouPlus). GitHub Actions собирает файлы мода, а Sideloadly встраивает их в **расшифрованный** `YouTube.ipa` и ставит на iPhone.
 
 ## Что внутри
 
@@ -18,7 +18,7 @@ Sideload-friendly YouTube mod for iOS (стиль uYouPlus): свой Theos-тв
 Локализация (`Sources/L10n.x` + `Resources/YTModResources.bundle`):
 - Языки: en, ru, kk, uk, es, de, fr, pt-BR, ja, zh-Hans.
 - По умолчанию берётся язык системы; в экране YTMod → **Язык** можно выбрать вручную (применяется сразу).
-- В IPA бандл кладётся в корень `YouTube.app` (через `cyan -f`), в .deb — в `/Library/Application Support/YTMod/`.
+- `YTModResources.bundle` добавляется в Sideloadly вместе с `.deb` и попадает в корень `YouTube.app`.
 - Добавить язык: создай `Resources/YTModResources.bundle/<код>.lproj/Localizable.strings`, скопировав ключи из `en.lproj`. Ключи `muxed_fmt` / `muxed_mp4_fmt` — format-строки, порядок `%@` не меняй.
 
 Автоматически подтягиваются в сборку (если доступны релизы):
@@ -26,7 +26,6 @@ Sideload-friendly YouTube mod for iOS (стиль uYouPlus): свой Theos-тв
 - YouPiP
 - YTUHD
 - Return YouTube Dislikes
-- YouTubeHeader (общие заголовки)
 
 Встроенный **downloader** (`Sources/Downloader.x`):
 - Хукает `YTIPlayerResponse.streamingData` и запоминает список `formats`/`adaptiveFormats`.
@@ -38,50 +37,44 @@ Sideload-friendly YouTube mod for iOS (стиль uYouPlus): свой Theos-тв
   3. Склеивает через `AVMutableComposition` + `AVAssetExportSession` в один `.mp4` (passthrough, без перекодирования — быстро).
   4. **Только H.264 + AAC**. VP9/AV1/Opus iOS не упакует — такие варианты не показываются в списке.
 - Если плеер YouTube обновится и регэкспы в `SigDecipher.x` перестанут матчиться, decipher упадёт с сообщением "regex miss" — тогда обнови паттерны `kSigNamePat` / `kNFuncPat` (сверяйся с [yt-dlp/extractor/youtube.py](https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/youtube/_video.py)).
-- Для Photos CI автоматически добавляет `NSPhotoLibraryAddUsageDescription` в Info.plist.
+- Сохранение в Фото работает, если в `Info.plist` YouTube есть разрешение на доступ к Фото. Если его нет, видео открывается в меню «Поделиться» → «Сохранить в Файлы».
 
 ## Структура
 
 ```
-Makefile              # Theos tweak build
-control               # deb metadata
-YTMod.plist           # bundle filter -> com.google.ios.youtube
-Sources/
-  Tweak.x             # основные хуки
-  Settings.x          # чтение prefs plist
-  Settings.h
+Makefile              # сборка твика (Theos)
+control               # метаданные .deb
+YTMod.plist           # фильтр: грузиться только в com.google.ios.youtube
+Sources/              # код мода
+Resources/
+  YTModResources.bundle   # переводы интерфейса
 .github/workflows/
-  build.yml           # macos-14 runner: Theos + cyan + repack
+  build.yml           # сборка файлов мода на GitHub
 ```
 
-## Как собрать (GitHub Actions)
+## Как собрать
 
-1. Запушь этот репо на GitHub.
-2. Залей расшифрованный YouTube IPA куда-то, откуда CI может его скачать по прямой ссылке (приватный R2/S3, GitHub Release на приватном репо с токеном, и т.п.). **Chrome-store / App Store ссылки не подойдут — нужен decrypted IPA.**
-3. Actions → **Build YTMod IPA** → Run workflow → укажи `ipa_url`.
-4. Скачай `YTMod.ipa` из артефактов джоба.
+Сборка запускается сама при каждом пуше в `main`. Запустить вручную: **Actions → Build YTMod for Sideloadly → Run workflow**.
 
-## Как поставить
+Когда она закончится, внизу страницы запуска в разделе **Artifacts** будет архив `YTMod-for-Sideloadly`. Скачай и распакуй его, внутри:
+- `YTMod.deb` — сам мод;
+- `YTModResources.bundle` — переводы интерфейса;
+- `.deb` дополнительных твиков (SponsorBlock, YouPiP, YTUHD, Return Dislike), если GitHub смог их скачать.
 
-- **TrollStore** (iOS 14.0–16.6.1, 17.0): просто открой `.ipa`.
-- **AltStore / SideStore**: добавь IPA, подпиши своим Apple ID (7 дней / 1 год для dev account).
-- **Sideloadly**: подпиши и установи по USB.
+## Как поставить (Sideloadly)
 
-## Локальная сборка (если есть Mac)
+1. Нужен **расшифрованный** `YouTube.ipa` (из App Store он зашифрован и не подойдёт).
+2. Открой Sideloadly, перетащи в него `YouTube.ipa`, введи свой Apple ID.
+3. **Advanced options → Tweak injection → Inject dylibs/frameworks** — добавь все `.deb` из архива и папку `YTModResources.bundle`.
+4. Подключи iPhone по кабелю и нажми **Start**.
+5. На iPhone: **Настройки → Конфиденциальность и безопасность → Режим разработчика** — включить (пункт появляется после первой установки). Потом **Настройки → Основные → VPN и управление устройством** — доверять своему Apple ID.
 
-```bash
-export THEOS=~/theos
-make package FINALPACKAGE=1
-# .deb появится в packages/
-pipx install pyzule-rw
-cyan -duwsgq -i YouTube.ipa -o YTMod.ipa -n YTMod -b com.ytmod.youtube \
-     -f packages/*.deb /path/to/extras/*.deb
-```
+С бесплатным Apple ID приложение работает 7 дней, потом переустанови его через Sideloadly тем же способом (данные сохранятся).
 
 ## Совместимость
 
 - Протестируй на последней публичной версии YouTube iOS (убедись, что селекторы совпадают).
-- При крупном обновлении YouTube классы могут переименоваться — тогда правь `Sources/Tweak.x`. Тулзы для реверса: `class-dump`, `Hopper`, `cyberduck+Filza` для скачивания `YouTube.app/YouTube` с устройства.
+- При крупном обновлении YouTube классы могут переименоваться — тогда правь `Sources/Tweak.x`. Для разбора бинарника YouTube подойдут `class-dump` и `Hopper`.
 
 ## Легалка
 

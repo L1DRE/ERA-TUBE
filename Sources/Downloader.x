@@ -85,8 +85,17 @@ static void ResolveFormatURL(NSDictionary *fmt, void (^cb)(NSString *url, NSErro
     }];
 }
 
+static void ShareFile(NSURL *fileURL, UIViewController *host);
+
 static void SaveVideoToCameraRoll(NSURL *fileURL, UIViewController *host) {
-    [PHPhotoLibrary requestAuthorizationForAccessLevel:PHAccessLevelAddOnly
+    // Запрос доступа к Фото без usage-строки в Info.plist роняет приложение.
+    NSDictionary *info = NSBundle.mainBundle.infoDictionary;
+    PHAccessLevel level;
+    if (info[@"NSPhotoLibraryAddUsageDescription"])   level = PHAccessLevelAddOnly;
+    else if (info[@"NSPhotoLibraryUsageDescription"]) level = PHAccessLevelReadWrite;
+    else { ShareFile(fileURL, host); return; }
+
+    [PHPhotoLibrary requestAuthorizationForAccessLevel:level
                                                handler:^(PHAuthorizationStatus st) {
         if (st != PHAuthorizationStatusAuthorized && st != PHAuthorizationStatusLimited) return;
         [[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
@@ -106,9 +115,17 @@ static void SaveVideoToCameraRoll(NSURL *fileURL, UIViewController *host) {
 }
 
 static void ShareFile(NSURL *fileURL, UIViewController *host) {
-    UIActivityViewController *vc = [[UIActivityViewController alloc]
-        initWithActivityItems:@[fileURL] applicationActivities:nil];
-    [host presentViewController:vc animated:YES completion:nil];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIActivityViewController *vc = [[UIActivityViewController alloc]
+            initWithActivityItems:@[fileURL] applicationActivities:nil];
+        NSDictionary *info = NSBundle.mainBundle.infoDictionary;
+        if (!info[@"NSPhotoLibraryAddUsageDescription"] && !info[@"NSPhotoLibraryUsageDescription"])
+            vc.excludedActivityTypes = @[UIActivityTypeSaveToCameraRoll];
+        vc.popoverPresentationController.sourceView = host.view;
+        vc.popoverPresentationController.sourceRect =
+            CGRectMake(host.view.bounds.size.width / 2, host.view.bounds.size.height / 2, 1, 1);
+        [host presentViewController:vc animated:YES completion:nil];
+    });
 }
 
 // Качает один URL в tmp-файл. cb вызывается в main queue.
