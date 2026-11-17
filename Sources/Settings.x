@@ -19,6 +19,7 @@ const YTModOption kYTModOptions[] = {
     {"hideBranding", "Hide branding overlays",    "Ads"},
     {"background",   "Background playback",       "Playback"},
     {"pip",          "Picture-in-Picture",        "Playback"},
+    {"sponsorBlock", "Skip sponsor segments",     "Playback"},
     {"hideShorts",   "Hide Shorts tab",           "UI"},
     {"downloader",   "Downloader button",         "Downloader"},
 };

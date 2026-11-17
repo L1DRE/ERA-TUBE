@@ -20,3 +20,9 @@
 
 @interface YTPivotBarView : UIView
 @end
+
+@interface YTPlayerViewController : UIViewController
+- (NSString *)currentVideoID;
+- (CGFloat)currentVideoMediaTime;
+- (void)seekToTime:(CGFloat)time;
+@end

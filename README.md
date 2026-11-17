@@ -21,11 +21,15 @@
 - `YTModResources.bundle` добавляется в Sideloadly вместе с `.deb` и попадает в корень `YouTube.app`.
 - Добавить язык: создай `Resources/YTModResources.bundle/<код>.lproj/Localizable.strings`, скопировав ключи из `en.lproj`. Ключи `muxed_fmt` / `muxed_mp4_fmt` — format-строки, порядок `%@` не меняй.
 
-Автоматически подтягиваются в сборку (если доступны релизы):
-- YouTubeSponsorBlock
-- YouPiP
-- YTUHD
-- Return YouTube Dislikes
+Пропуск спонсорских вставок (`Sources/SponsorBlock.x`):
+- Встроен в мод, отдельный твик не нужен. Отрезки берутся из открытого API [SponsorBlock](https://sponsor.ajay.app): sponsor, self-promo, interaction.
+- На сервер уходят только первые 4 символа SHA-256 от ID видео, так что он не знает, какое видео ты смотришь.
+- Включается в YTMod → Воспроизведение → «Пропускать спонсорские вставки».
+
+Дополнительные твики в архиве сборки:
+- **YouPiP** и **YTUHD** — свежая версия из репозитория PoomSmart (`poomsmart.github.io/repo`).
+- **Return YouTube Dislike** — собирается из исходников [PoomSmart/Return-YouTube-Dislikes](https://github.com/PoomSmart/Return-YouTube-Dislikes), вместе с ресурсами `RYD.bundle`.
+- Если какой-то из них не скачается или не соберётся, архив всё равно будет, просто без него.
 
 Встроенный **downloader** (`Sources/Downloader.x`):
 - Хукает `YTIPlayerResponse.streamingData` и запоминает список `formats`/`adaptiveFormats`.
@@ -59,13 +63,13 @@ Resources/
 Когда она закончится, внизу страницы запуска в разделе **Artifacts** будет архив `YTMod-for-Sideloadly`. Скачай и распакуй его, внутри:
 - `YTMod.deb` — сам мод;
 - `YTModResources.bundle` — переводы интерфейса;
-- `.deb` дополнительных твиков (SponsorBlock, YouPiP, YTUHD, Return Dislike), если GitHub смог их скачать.
+- `.deb` дополнительных твиков (YouPiP, YTUHD, Return Dislike) и `RYD.bundle` — ресурсы Return Dislike.
 
 ## Как поставить (Sideloadly)
 
 1. Нужен **расшифрованный** `YouTube.ipa` (из App Store он зашифрован и не подойдёт).
 2. Открой Sideloadly, перетащи в него `YouTube.ipa`, введи свой Apple ID.
-3. **Advanced options → Tweak injection → Inject dylibs/frameworks** — добавь все `.deb` из архива и папку `YTModResources.bundle`.
+3. **Advanced options → Tweak injection → Inject dylibs/frameworks** — добавь все `.deb` из архива и обе папки `.bundle`.
 4. Подключи iPhone по кабелю и нажми **Start**.
 5. На iPhone: **Настройки → Конфиденциальность и безопасность → Режим разработчика** — включить (пункт появляется после первой установки). Потом **Настройки → Основные → VPN и управление устройством** — доверять своему Apple ID.
 

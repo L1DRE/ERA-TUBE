@@ -42,25 +42,31 @@ jobs:
           cat build.log
           ls -lh packages/
 
-      - name: Fetch extension tweaks
+      - name: Fetch YouPiP and YTUHD
+        continue-on-error: true
+        run: |
+          set -eux
+          mkdir -p extras
+          python3 .github/scripts/fetch_poomsmart.py extras
+
+      # No prebuilt .deb exists anywhere, so build it from source.
+      - name: Build Return YouTube Dislike
+        continue-on-error: true
         run: |
           set -u
           mkdir -p extras
-          urls=(
-            "https://github.com/PoomSmart/YouTubeSponsorBlock/releases/latest/download/com.ps.yt.sponsorblock.deb"
-            "https://github.com/PoomSmart/YouPiP/releases/latest/download/com.ps.youpip.deb"
-            "https://github.com/PoomSmart/YTUHD/releases/latest/download/com.ps.ytuhd.deb"
-            "https://github.com/PoomSmart/Return-YouTube-Dislikes/releases/latest/download/com.ps.yt.rtyd.deb"
-          )
-          for u in "${urls[@]}"; do
-            n=$(basename "$u")
-            if curl -fsSL -o "extras/$n" "$u"; then
-              echo "ok   $n"
-            else
-              rm -f "extras/$n"
-              echo "::warning::not found, skipped: $n"
-            fi
-          done
+          git clone --depth=1 https://github.com/PoomSmart/YouTubeHeader.git "$THEOS/include/YouTubeHeader"
+          git clone --depth=1 https://github.com/PoomSmart/PSHeader.git "$THEOS/include/PSHeader"
+          git clone --depth=1 https://github.com/PoomSmart/Return-YouTube-Dislikes.git ryd
+          cd ryd
+          if ! gmake package FINALPACKAGE=1 TARGET=iphone:clang:latest:14.0 > ../ryd.log 2>&1; then
+            cat ../ryd.log
+            sed -E 's/\x1B\[[0-9;]*m//g; s#^.*/ryd/#ryd/#' ../ryd.log | grep -E "error:" | sort -u | head -10 \
+              | while IFS= read -r l; do echo "::error::RYD: $l"; done
+            exit 1
+          fi
+          cp packages/*.deb ../extras/
+          cp -R "layout/Library/Application Support/RYD.bundle" ../extras/
 
       - name: Collect files for Sideloadly
         run: |
@@ -68,6 +74,7 @@ jobs:
           mkdir -p out
           cp packages/*.deb out/YTMod.deb
           cp extras/*.deb out/ 2>/dev/null || true
+          cp -R extras/*.bundle out/ 2>/dev/null || true
           cp -R Resources/YTModResources.bundle out/
           ls -la out/
 

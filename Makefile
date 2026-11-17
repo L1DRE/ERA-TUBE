@@ -7,7 +7,7 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = YTMod
 
-YTMod_FILES = Sources/Tweak.x Sources/Settings.x Sources/SettingsUI.x Sources/L10n.x Sources/Downloader.x Sources/SigDecipher.x Sources/Muxer.x
+YTMod_FILES = Sources/Tweak.x Sources/Settings.x Sources/SettingsUI.x Sources/L10n.x Sources/SponsorBlock.x Sources/Downloader.x Sources/SigDecipher.x Sources/Muxer.x
 YTMod_CFLAGS = -fobjc-arc -Wno-deprecated-declarations
 YTMod_FRAMEWORKS = UIKit Foundation AVKit AVFoundation MediaPlayer Photos JavaScriptCore
 YTMod_LIBRARIES = substrate
