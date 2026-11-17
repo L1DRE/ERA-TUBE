@@ -26,11 +26,17 @@ jobs:
         run: |
           set -u
           # Job logs need a GitHub login; annotations are public, so surface errors there.
-          if ! gmake package FINALPACKAGE=1 > build.log 2>&1; then
+          # -k keeps compiling other files after one fails, so one run shows every broken file.
+          if ! gmake -k package FINALPACKAGE=1 > build.log 2>&1; then
             cat build.log
-            grep -E "error:|Error [0-9]+|\*\*\*|fatal" build.log | head -10 | while IFS= read -r l; do
-              echo "::error::$l"
-            done
+            sed -E 's/\x1B\[[0-9;]*m//g; s#^.*/Sources/#Sources/#' build.log \
+              | grep -E "error:" | sort -u > errors.txt
+            if [ -s errors.txt ]; then
+              head -10 errors.txt | while IFS= read -r l; do echo "::error::$l"; done
+              tail -n +11 errors.txt | head -10 | while IFS= read -r l; do echo "::warning::(more) $l"; done
+            else
+              tail -10 build.log | while IFS= read -r l; do echo "::error::$l"; done
+            fi
             exit 1
           fi
           cat build.log
