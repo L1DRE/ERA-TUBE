@@ -11,7 +11,7 @@
 - Скрытие вкладки Shorts и `YTReelHeaderView`.
 
 Настройки (`Sources/SettingsUI.x` + `Settings.x`):
-- Встраивается в YouTube Settings → General разделом **YTMod** с переключателями (Block ads, Background, PiP, Hide Shorts, Downloader, …).
+- Отдельный раздел **YTMod** в настройках YouTube (рядом с «Общие») с переключателями и пунктом «Язык».
 - Fallback: долгий тап по аватарке в аккаунт-меню тоже открывает экран.
 - Хранится в `Documents/ytmod.plist` внутри контейнера приложения (переживает перезапуск, стирается при переустановке IPA).
 

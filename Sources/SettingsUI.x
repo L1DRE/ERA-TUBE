@@ -1,10 +1,8 @@
-// SettingsUI — встраивается в YouTube Settings отдельной строкой «YTMod».
-// Последняя секция — выбор языка UI тюика (не зависит от языка YouTube).
-//
-// Если YT переименует YTSettingsSectionController — работает fallback через
-// длинный тап по аватарке.
+// SettingsUI — раздел «YTMod» в настройках YouTube (переключатели + «Язык»)
+// и отдельный экран YTModSettingsVC, который открывается из пункта «Язык».
 
 #import <UIKit/UIKit.h>
+#import <objc/runtime.h>
 #import "Settings.h"
 #import "L10n.h"
 #import "YTHeaders.h"
@@ -123,47 +121,75 @@ static UIViewController *YTModSettingsNav(void) {
     return nav;
 }
 
-// --------- hook YT settings table to add our row ---------
+// --------- YTMod section in YouTube's own Settings screen ---------
+// Settings are numbered categories: register ours in the category order, then
+// fill it when the section item manager asks for it.
 
-@class YTSettingsSectionItem;
+static const NSInteger kYTModCategory = 1085;
 
-%hook YTSettingsSectionController
+%hook YTSettingsGroupData
+- (NSArray<NSNumber *> *)orderedCategories {
+    NSArray *categories = %orig;
+    // Some tweak managers replace grouping with a +tweaks group; leave those alone.
+    if (self.type != 1 || class_getClassMethod(object_getClass(self), @selector(tweaks)))
+        return categories;
+    if ([categories containsObject:@(kYTModCategory)]) return categories;
+    NSMutableArray *m = [categories mutableCopy];
+    [m insertObject:@(kYTModCategory) atIndex:0];
+    return m;
+}
+%end
 
-- (void)setSectionItems:(NSArray *)items {
-    NSString *title = [[self valueForKey:@"title"] description] ?: @"";
-    NSString *lc = title.lowercaseString;
-    if (!([lc containsString:@"general"] ||
-          [lc containsString:@"общ"]     ||  // ru
-          [lc containsString:@"загал"]   ||  // uk
-          [lc containsString:@"жалпы"]   ||  // kk
-          [lc containsString:@"general"] ||  // es/de/fr/pt
-          [lc containsString:@"allgemein"]||
-          [lc containsString:@"général"] ||
-          [lc containsString:@"一般"]     ||  // ja/zh
-          [lc containsString:@"通用"])) {
-        %orig; return;
+%hook YTAppSettingsPresentationData
++ (NSArray<NSNumber *> *)settingsCategoryOrder {
+    NSArray<NSNumber *> *order = %orig;
+    if ([order containsObject:@(kYTModCategory)]) return order;
+    NSUInteger i = [order indexOfObject:@(1)];
+    NSMutableArray *m = [order mutableCopy];
+    [m insertObject:@(kYTModCategory) atIndex:(i == NSNotFound ? 0 : i + 1)];
+    return m;
+}
+%end
+
+%hook YTSettingsSectionItemManager
+- (void)updateSectionForCategory:(NSUInteger)category withEntry:(id)entry {
+    if (category != kYTModCategory) { %orig; return; }
+
+    YTSettingsViewController *delegate = [self valueForKey:@"_dataDelegate"];
+    Class itemCls = %c(YTSettingsSectionItem);
+    NSMutableArray *items = [NSMutableArray array];
+
+    for (NSString *section in SettingsOrderedSections()) {
+        for (NSString *key in SettingsKeysForSection(section)) {
+            [items addObject:[itemCls switchItemWithTitle:SettingsTitleForKey(key)
+                titleDescription:nil
+                accessibilityIdentifier:nil
+                switchOn:SettingsEnabled(key)
+                switchBlock:^BOOL(id cell, BOOL enabled) {
+                    SettingsSetEnabled(key, enabled);
+                    return YES;
+                }
+                settingItemId:0]];
+        }
     }
 
-    Class itemCls = NSClassFromString(@"YTSettingsSectionItem");
-    SEL sel = NSSelectorFromString(@"itemWithTitle:accessibilityIdentifier:detailTextBlock:selectBlock:");
-    if (!itemCls || ![itemCls respondsToSelector:sel]) { %orig; return; }
+    [items addObject:[itemCls itemWithTitle:L10n(@"Language")
+        titleDescription:nil
+        accessibilityIdentifier:nil
+        detailTextBlock:nil
+        selectBlock:^BOOL(id cell, NSUInteger arg1) {
+            [delegate presentViewController:YTModSettingsNav() animated:YES completion:nil];
+            return YES;
+        }]];
 
-    id (^selectBlock)(id, id) = ^id(id cell, id nav) {
-        UIViewController *top = [UIApplication.sharedApplication.keyWindow rootViewController];
-        while (top.presentedViewController) top = top.presentedViewController;
-        [top presentViewController:YTModSettingsNav() animated:YES completion:nil];
-        return nil;
-    };
-
-    IMP imp = [itemCls methodForSelector:sel];
-    id (*fn)(id, SEL, NSString *, NSString *, id, id) = (void *)imp;
-    id entry = fn(itemCls, sel, @"YTMod", @"ytmod_entry", nil, selectBlock);
-
-    NSMutableArray *patched = [items mutableCopy] ?: [NSMutableArray array];
-    [patched addObject:entry];
-    %orig(patched);
+    SEL withIcon = @selector(setSectionItems:forCategory:title:icon:titleDescription:headerHidden:);
+    if ([delegate respondsToSelector:withIcon])
+        [delegate setSectionItems:items forCategory:kYTModCategory title:@"YTMod"
+                             icon:[%c(YTIIcon) new] titleDescription:nil headerHidden:NO];
+    else
+        [delegate setSectionItems:items forCategory:kYTModCategory title:@"YTMod"
+                 titleDescription:nil headerHidden:NO];
 }
-
 %end
 
 // --------- fallback: long press по аватарке ---------
