@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     name: Build tweak files
-    runs-on: macos-14
+    runs-on: macos-latest
     env:
       THEOS: ${{ github.workspace }}/theos
 
