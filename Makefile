@@ -1,7 +1,8 @@
 TARGET := iphone:clang:latest:14.0
 INSTALL_TARGET_PROCESSES = YouTube
 
-ARCHS = arm64 arm64e
+# arm64 only: YouTube itself is arm64, and dyld picked the arm64e slice otherwise.
+ARCHS = arm64
 
 include $(THEOS)/makefiles/common.mk
 
