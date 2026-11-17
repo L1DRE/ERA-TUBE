@@ -18,7 +18,7 @@
 Локализация (`Sources/L10n.x` + `Resources/YTModResources.bundle`):
 - Языки: en, ru, kk, uk, es, de, fr, pt-BR, ja, zh-Hans.
 - По умолчанию берётся язык системы; в экране YTMod → **Язык** можно выбрать вручную (применяется сразу).
-- `YTModResources.bundle` добавляется в Sideloadly вместе с `.deb` и попадает в корень `YouTube.app`.
+- `YTModResources.bundle` упакован внутрь `YTMod.deb`; Sideloadly при установке кладёт его в `YouTube.app`.
 - Добавить язык: создай `Resources/YTModResources.bundle/<код>.lproj/Localizable.strings`, скопировав ключи из `en.lproj`. Ключи `muxed_fmt` / `muxed_mp4_fmt` — format-строки, порядок `%@` не меняй.
 
 Пропуск спонсорских вставок (`Sources/SponsorBlock.x`):
@@ -62,14 +62,15 @@ Resources/
 
 Когда она закончится, внизу страницы запуска в разделе **Artifacts** будет архив `YTMod-for-Sideloadly`. Скачай и распакуй его, внутри:
 - `YTMod.deb` — сам мод;
-- `YTModResources.bundle` — переводы интерфейса;
-- `.deb` дополнительных твиков (YouPiP, YTUHD, Return Dislike) и `RYD.bundle` — ресурсы Return Dislike.
+- `.deb` дополнительных твиков (YouPiP, YTUHD, Return Dislike).
+
+Переводы (`YTModResources.bundle`) и ресурсы Return Dislike (`RYD.bundle`) лежат внутри своих `.deb`, Sideloadly достаёт их сам.
 
 ## Как поставить (Sideloadly)
 
 1. Нужен **расшифрованный** `YouTube.ipa` (из App Store он зашифрован и не подойдёт).
 2. Открой Sideloadly, перетащи в него `YouTube.ipa`, введи свой Apple ID.
-3. **Advanced options → Tweak injection → Inject dylibs/frameworks** — добавь все `.deb` из архива и обе папки `.bundle`.
+3. **Advanced options → Tweak injection → Inject dylibs/frameworks** — добавь все `.deb` из архива. Папки `.bundle` отдельно не добавляй: они уже внутри `.deb`, и Sideloadly выдаст ошибку «Duplicated name».
 4. Подключи iPhone по кабелю и нажми **Start**.
 5. На iPhone: **Настройки → Конфиденциальность и безопасность → Режим разработчика** — включить (пункт появляется после первой установки). Потом **Настройки → Основные → VPN и управление устройством** — доверять своему Apple ID.
 
