@@ -42,7 +42,7 @@ jobs:
           cat build.log
           ls -lh packages/
 
-      - name: Fetch YouPiP and YTUHD
+      - name: Fetch YouPiP
         continue-on-error: true
         run: |
           set -eux

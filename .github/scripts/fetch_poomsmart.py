@@ -4,7 +4,9 @@ import sys
 import urllib.request
 
 REPO = "https://poomsmart.github.io/repo/"
-PACKAGES = ["com.ps.youpip", "com.ps.ytuhd"]
+# No com.ps.ytuhd: it links /usr/lib/libundirect.dylib, which exists only on
+# jailbroken devices, so a sideloaded app crashes at launch.
+PACKAGES = ["com.ps.youpip"]
 ARCH = "iphoneos-arm"
 
 
