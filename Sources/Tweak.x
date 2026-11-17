@@ -6,6 +6,7 @@
 #import <UIKit/UIKit.h>
 #import <AVKit/AVKit.h>
 #import "Settings.h"
+#import "YTHeaders.h"
 
 // ---------- 1. Ad removal ----------
 

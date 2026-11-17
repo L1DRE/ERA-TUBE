@@ -121,7 +121,7 @@ static NSString *ExtractTransObject(NSString *js, NSString *sigBody) {
         [src appendString:transObj];
         [src appendString:sigBody];
         [src appendString:@";\n"];
-        if (nBody) [src appendString:nBody], [src appendString:@";\n"];
+        if (nBody) [src appendFormat:@"%@;\n", nBody];
 
         [src appendFormat:@"\nfunction __sig(s){return %@(s);}\n", sigName];
         if (nName)

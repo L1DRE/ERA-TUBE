@@ -24,8 +24,16 @@ jobs:
 
       - name: Build tweak (.deb)
         run: |
-          set -eux
-          gmake package FINALPACKAGE=1
+          set -u
+          # Job logs need a GitHub login; annotations are public, so surface errors there.
+          if ! gmake package FINALPACKAGE=1 > build.log 2>&1; then
+            cat build.log
+            grep -E "error:|Error [0-9]+|\*\*\*|fatal" build.log | head -10 | while IFS= read -r l; do
+              echo "::error::$l"
+            done
+            exit 1
+          fi
+          cat build.log
           ls -lh packages/
 
       - name: Fetch extension tweaks

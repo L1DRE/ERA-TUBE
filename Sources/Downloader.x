@@ -13,6 +13,7 @@
 #import "SigDecipher.h"
 #import "Muxer.h"
 #import "L10n.h"
+#import "YTHeaders.h"
 
 // --------- state ---------
 
