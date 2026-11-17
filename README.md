@@ -27,7 +27,7 @@
 - Включается в YTMod → Воспроизведение → «Пропускать спонсорские вставки».
 
 Дополнительные твики в архиве сборки:
-- **YouPiP** — свежая версия из репозитория PoomSmart (`poomsmart.github.io/repo`).
+- **YouPiP не включён**: с YouTube 21.46.3 на iOS 27 он роняет приложение при запуске. Картинку в картинке включает сам мод.
 - **YTUHD не включён**: он требует `/usr/lib/libundirect.dylib`, которая есть только на джейлбрейке, и без неё YouTube вылетает при запуске. Высокие разрешения для скачивания даёт встроенный загрузчик.
 - **Return YouTube Dislike** — собирается из исходников [PoomSmart/Return-YouTube-Dislikes](https://github.com/PoomSmart/Return-YouTube-Dislikes), вместе с ресурсами `RYD.bundle`.
 - Если какой-то из них не скачается или не соберётся, архив всё равно будет, просто без него.
@@ -63,7 +63,7 @@ Resources/
 
 Когда она закончится, внизу страницы запуска в разделе **Artifacts** будет архив `YTMod-for-Sideloadly`. Скачай и распакуй его, внутри:
 - `YTMod.deb` — сам мод;
-- `.deb` дополнительных твиков (YouPiP, Return Dislike).
+- `.deb` Return YouTube Dislike.
 
 Переводы (`YTModResources.bundle`) и ресурсы Return Dislike (`RYD.bundle`) лежат внутри своих `.deb`, Sideloadly достаёт их сам.
 

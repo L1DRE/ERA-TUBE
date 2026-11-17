@@ -42,13 +42,6 @@ jobs:
           cat build.log
           ls -lh packages/
 
-      - name: Fetch YouPiP
-        continue-on-error: true
-        run: |
-          set -eux
-          mkdir -p extras
-          python3 .github/scripts/fetch_poomsmart.py extras
-
       # No prebuilt .deb exists anywhere, so build it from source.
       - name: Build Return YouTube Dislike
         continue-on-error: true
