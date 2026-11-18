@@ -50,9 +50,34 @@ static NSArray<NSString *> *GPBFieldNames(Class cls) {
     }
 }
 
+// Player methods SponsorBlock relies on, plus any time/seek/videoID-like
+// methods in case YouTube renamed them.
+static void DumpPlayerMethods(void) {
+    Class cls = objc_getClass("YTPlayerViewController");
+    if (!cls) { YTModLog(@"YTPlayerViewController: class missing"); return; }
+    for (NSString *s in @[@"singleVideo:currentVideoTimeDidChange:", @"currentVideoID",
+                          @"currentVideoMediaTime", @"seekToTime:"])
+        YTModLog(@"YTPlayerViewController %@: %@", s,
+                 class_getInstanceMethod(cls, NSSelectorFromString(s)) ? @"yes" : @"NO");
+
+    unsigned int n = 0;
+    Method *methods = class_copyMethodList(cls, &n);
+    NSMutableArray *hits = [NSMutableArray array];
+    for (unsigned int i = 0; i < n; i++) {
+        NSString *name = NSStringFromSelector(method_getName(methods[i]));
+        NSString *lc = name.lowercaseString;
+        if ([lc containsString:@"time"] || [lc containsString:@"seek"] || [lc containsString:@"videoid"])
+            [hits addObject:name];
+    }
+    free(methods);
+    [hits sortUsingSelector:@selector(compare:)];
+    YTModLog(@"YTPlayerViewController time/seek/videoID methods: %@", [hits componentsJoinedByString:@" "]);
+}
+
 static void DumpRuntimeInfo(void) {
     YTModLog(@"=== YTMod diagnostics: YouTube %@ ===",
              NSBundle.mainBundle.infoDictionary[@"CFBundleShortVersionString"]);
+    DumpPlayerMethods();
 
     for (NSString *name in @[@"YTIPlayerResponse", @"YTIPlayabilityStatus"])
         YTModLog(@"fields %@: %@", name,

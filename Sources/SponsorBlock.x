@@ -6,6 +6,7 @@
 #import "Settings.h"
 #import "L10n.h"
 #import "YTHeaders.h"
+#import "Diagnostics.h"
 
 static NSString *gSegVideoId;          // video the segments below belong to
 static NSArray<NSArray *> *gSegments;  // @[ @[start, end], ... ]
@@ -30,11 +31,16 @@ static void FetchSegments(NSString *videoId) {
         [@"https://sponsor.ajay.app/api/skipSegments/" stringByAppendingString:SHA256Prefix(videoId, 4)]];
     c.queryItems = @[[NSURLQueryItem queryItemWithName:@"categories" value:cats]];
 
+    YTModLog(@"SponsorBlock: fetching segments for new video");
     [[[NSURLSession sharedSession] dataTaskWithURL:c.URL
         completionHandler:^(NSData *data, NSURLResponse *resp, NSError *err) {
-        if (err || !data) return;
+        NSInteger status = [resp isKindOfClass:NSHTTPURLResponse.class] ? ((NSHTTPURLResponse *)resp).statusCode : 0;
+        if (err || !data) { YTModLog(@"SponsorBlock: request failed (%ld) %@", (long)status, err); return; }
         id json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-        if (![json isKindOfClass:NSArray.class]) return;
+        if (![json isKindOfClass:NSArray.class]) {
+            YTModLog(@"SponsorBlock: HTTP %ld, no segments for this hash prefix", (long)status);
+            return;
+        }
         NSMutableArray *segs = [NSMutableArray array];
         for (NSDictionary *v in json) {
             if (![v isKindOfClass:NSDictionary.class] || ![v[@"videoID"] isEqual:videoId]) continue;
@@ -43,6 +49,7 @@ static void FetchSegments(NSString *videoId) {
                 if ([seg isKindOfClass:NSArray.class] && seg.count == 2) [segs addObject:seg];
             }
         }
+        YTModLog(@"SponsorBlock: HTTP %ld, %lu segment(s) for this video", (long)status, (unsigned long)segs.count);
         dispatch_async(dispatch_get_main_queue(), ^{
             if ([gSegVideoId isEqualToString:videoId]) gSegments = segs;
         });
@@ -68,7 +75,18 @@ static void ShowToast(UIView *host, NSString *text) {
 
 - (void)singleVideo:(id)video currentVideoTimeDidChange:(id)time {
     %orig;
+    static int calls;
+    if (calls++ == 0) YTModLog(@"SponsorBlock: time-change hook fires");
     if (!SettingsEnabled(@"sponsorBlock")) return;
+
+    // Guard: these selectors come from older YouTube builds.
+    if (![self respondsToSelector:@selector(currentVideoID)] ||
+        ![self respondsToSelector:@selector(currentVideoMediaTime)] ||
+        ![self respondsToSelector:@selector(seekToTime:)]) {
+        static BOOL warned;
+        if (!warned) { warned = YES; YTModLog(@"SponsorBlock: player methods missing, disabled"); }
+        return;
+    }
 
     NSString *vid = [self currentVideoID];
     if (!vid.length) return;
@@ -79,6 +97,7 @@ static void ShowToast(UIView *host, NSString *text) {
         CGFloat start = [gSegments[i][0] doubleValue], end = [gSegments[i][1] doubleValue];
         if (t >= start && t < end - 0.5 && ![gSkipped containsObject:@(i)]) {
             [gSkipped addObject:@(i)];
+            YTModLog(@"SponsorBlock: skipping %.1f -> %.1f", start, end);
             [self seekToTime:end];
             ShowToast(self.view, L10n(@"Skipped sponsor segment"));
             break;
