@@ -3,6 +3,7 @@
 
 #import <UIKit/UIKit.h>
 #import <AVKit/AVKit.h>
+#import <objc/runtime.h>
 #import "Settings.h"
 #import "YTHeaders.h"
 #import "Diagnostics.h"
@@ -18,39 +19,42 @@ static id KV(id obj, NSString *key);
 // spam signals or the ads playback coordinator made every video fail to load on
 // YouTube 21.46) and instead empty the ad lists once the response is parsed,
 // the same fields web ad blockers strip.
-static void StripPlayerAds(id response, NSString *via) {
-    static int logged;
+static char kStrippedKey;
+
+// Field names confirmed from the on-device field dump of YouTube 21.46.3.
+static void StripPlayerAds(id response) {
+    if (objc_getAssociatedObject(response, &kStrippedKey)) return;
+    objc_setAssociatedObject(response, &kStrippedKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+
     NSMutableArray *found = [NSMutableArray array];
-    for (NSString *key in @[@"adPlacementsArray", @"playerAdsArray", @"adSlotsArray"]) {
+    for (NSString *key in @[@"adPlacementsArray", @"playerAdsArray", @"adSlotsArray",
+                            @"interstitialPodsArray"]) {
         id list = KV(response, key);
-        [found addObject:[NSString stringWithFormat:@"%@=%@", key,
-            list ? [NSString stringWithFormat:@"%@(%lu)", [list class], (unsigned long)[list count]] : @"nil"]];
+        NSUInteger n = [list isKindOfClass:NSArray.class] ? [list count] : 0;
+        if (n) [found addObject:[NSString stringWithFormat:@"%@=%lu", key, (unsigned long)n]];
         if ([list isKindOfClass:NSMutableArray.class]) [list removeAllObjects];
     }
-    if (logged++ < 20) YTModLog(@"strip via %@: %@", via, [found componentsJoinedByString:@" "]);
+    for (NSString *key in @[@"prefetchedPrerollAdBreakResponse", @"playerCompanionAd",
+                            @"instreamPlayerCtaAd"]) {
+        NSString *has = [@"has" stringByAppendingFormat:@"%@%@",
+                         [[key substringToIndex:1] uppercaseString], [key substringFromIndex:1]];
+        if (![KV(response, has) boolValue]) continue;
+        [found addObject:key];
+        @try { [response setValue:nil forKey:key]; } @catch (__unused id e) {}
+    }
+
+    static int logged;
+    if (logged++ < 30)
+        YTModLog(@"stripped: %@", found.count ? [found componentsJoinedByString:@" "] : @"(no ads)");
 }
 
+// No GPB parse entry point fires on YouTube 21.46 (confirmed by the debug log),
+// but isMonetized is called on every player response, so strip there.
 %hook YTIPlayerResponse
 - (BOOL)isMonetized {
-    static int logged;
-    if (logged++ < 5) YTModLog(@"isMonetized called");
-    return VIDEO_ADS_OFF ? NO : %orig;
-}
-
-// GPBMessage parse entry points; inherited, so Substrate adds overrides here.
-// Several are hooked because it is not known which one YouTube 21.46 uses.
-- (void)mergeFromCodedInputStream:(id)input extensionRegistry:(id)registry {
-    %orig;
-    if (VIDEO_ADS_OFF) StripPlayerAds(self, @"mergeFromCodedInputStream");
-}
-- (void)mergeFromData:(NSData *)data extensionRegistry:(id)registry {
-    %orig;
-    if (VIDEO_ADS_OFF) StripPlayerAds(self, @"mergeFromData");
-}
-+ (id)parseFromData:(NSData *)data error:(NSError **)error {
-    id r = %orig;
-    if (VIDEO_ADS_OFF && r) StripPlayerAds(r, @"parseFromData");
-    return r;
+    if (!VIDEO_ADS_OFF) return %orig;
+    StripPlayerAds(self);
+    return NO;
 }
 %end
 
