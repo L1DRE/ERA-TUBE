@@ -59,3 +59,12 @@
 
 @interface YTInlinePlayerBarView : UIView
 @end
+
+@interface YTModularPlayerBarView : UIView
+@end
+
+@interface YTPlayerBarSegmentedProgressView : UIView
+@end
+
+@interface YTPlayerBarView : UIView
+@end

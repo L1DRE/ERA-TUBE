@@ -40,7 +40,27 @@ static UIColor *CategoryColor(NSString *category) {
 
 static void DrawMarkers(UIView *bar) {
     for (UIView *v in [bar.subviews copy]) if (v.tag == kMarkerTag) [v removeFromSuperview];
+
+    // Log each bar class once, so the debug log shows which one is actually on screen.
+    static NSMutableSet *seenClasses;
+    if (!seenClasses) seenClasses = [NSMutableSet set];
+    NSString *cls = NSStringFromClass(bar.class);
+    if (![seenClasses containsObject:cls]) {
+        [seenClasses addObject:cls];
+        YTModLog(@"SponsorBlock: bar %@ size %.0fx%.0f, window %@", cls,
+                 bar.bounds.size.width, bar.bounds.size.height, bar.window ? @"yes" : @"no");
+    }
+
     if (!SettingsEnabled(@"sponsorBlock") || gDuration <= 0 || !gSegments.count) return;
+    // Only bar-shaped views: never paint over a whole player container.
+    if (bar.bounds.size.height > 40 || bar.bounds.size.width < 50) return;
+
+    static NSString *loggedFor;
+    if (![loggedFor isEqualToString:gSegVideoId]) {
+        loggedFor = gSegVideoId;
+        YTModLog(@"SponsorBlock: drawing %lu marker(s) on %@, duration %.0fs",
+                 (unsigned long)gSegments.count, cls, gDuration);
+    }
 
     CGFloat w = bar.bounds.size.width, h = 3;
     CGFloat y = (bar.bounds.size.height - h) / 2;
@@ -195,12 +215,26 @@ static void SponsorBlockTick(YTPlayerViewController *player) {
 
 %end
 
-// Segment markers on the main video progress bar.
-%hook YTInlinePlayerBarView
-- (void)layoutSubviews {
-    %orig;
+// Segment markers on the main video progress bar. Which class draws the visible
+// bar depends on the player design, so several candidates are hooked.
+static void BarDidLayout(UIView *bar) {
     if (!gBars) gBars = [NSHashTable weakObjectsHashTable];
-    [gBars addObject:self];
-    DrawMarkers(self);
+    [gBars addObject:bar];
+    DrawMarkers(bar);
 }
+
+%hook YTInlinePlayerBarView
+- (void)layoutSubviews { %orig; BarDidLayout(self); }
+%end
+
+%hook YTModularPlayerBarView
+- (void)layoutSubviews { %orig; BarDidLayout(self); }
+%end
+
+%hook YTPlayerBarSegmentedProgressView
+- (void)layoutSubviews { %orig; BarDidLayout(self); }
+%end
+
+%hook YTPlayerBarView
+- (void)layoutSubviews { %orig; BarDidLayout(self); }
 %end
