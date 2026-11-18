@@ -1,6 +1,4 @@
-// YTMod — core hooks
-// Covers: ad removal, background playback, PiP forced on, Shorts hiding, misc UI cleanup.
-// Known-good class/method names for current YouTube iOS builds (Dec 2025 era).
+// YTMod — core hooks: ad removal, background playback, PiP, Shorts hiding.
 // If YouTube ships an update that renames a symbol, adjust the matching hook.
 
 #import <UIKit/UIKit.h>
@@ -10,38 +8,94 @@
 
 // ---------- 1. Ad removal ----------
 
+#define ADS_OFF SettingsEnabled(@"adsOff")
+
+// Video ads: stop the ads context from being sent with player requests and
+// treat every video as unmonetized, so no ad breaks are scheduled.
 %hook YTIPlayerResponse
-- (NSArray *)adBreaks { return SettingsEnabled(@"adsOff") ? @[] : %orig; }
-- (NSArray *)adSlots { return SettingsEnabled(@"adsOff") ? @[] : %orig; }
-- (id)playerAds { return SettingsEnabled(@"adsOff") ? nil : %orig; }
+- (BOOL)isMonetized { return ADS_OFF ? NO : %orig; }
 %end
 
-%hook YTIElementRenderer
-- (NSData *)elementData {
-    NSData *d = %orig;
-    if (!SettingsEnabled(@"adsOff") || !d) return d;
-    NSString *s = [[NSString alloc] initWithData:d encoding:NSUTF8StringEncoding];
-    if ([s containsString:@"brand_promo"] ||
-        [s containsString:@"product_carousel"] ||
-        [s containsString:@"text_search_ad"] ||
-        [s containsString:@"shorts_shelf"] ||
-        [s containsString:@"ads"]) return nil;
-    return d;
+%hook YTAdsInnerTubeContextDecorator
+- (void)decorateContext:(id)context { if (!ADS_OFF) %orig; }
+%end
+
+%hook YTAccountScopedAdsInnerTubeContextDecorator
+- (void)decorateContext:(id)context { if (!ADS_OFF) %orig; }
+%end
+
+%hook YTDataUtils
++ (id)spamSignalsDictionary              { return ADS_OFF ? nil : %orig; }
++ (id)spamSignalsDictionaryWithoutIDFA   { return ADS_OFF ? nil : %orig; }
+%end
+
+%hook YTLocalPlaybackController
+- (id)createAdsPlaybackCoordinator { return ADS_OFF ? nil : %orig; }
+%end
+
+// Feed / search ads arrive as sections whose first item is a promoted renderer
+// or an element renderer whose type names an ad layout.
+static id KV(id obj, NSString *key) {
+    @try { return [obj valueForKey:key]; } @catch (__unused id e) { return nil; }
+}
+
+static BOOL IsAdElement(id element) {
+    if (!element) return NO;
+    static NSArray *markers;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        markers = @[@"brand_promo", @"carousel_footered_layout", @"carousel_headered_layout",
+                    @"feed_ad_metadata", @"full_width_portrait_image_layout",
+                    @"full_width_square_image_layout", @"landscape_image_wide_button_layout",
+                    @"product_carousel", @"product_engagement_panel", @"product_item",
+                    @"shopping_carousel", @"shopping_item_card_list", @"statement_banner",
+                    @"square_image_layout", @"text_image_button_layout", @"text_search_ad",
+                    @"video_display_full_layout", @"video_display_full_buttoned_layout"];
+    });
+    NSString *desc = [element description];
+    for (NSString *m in markers) if ([desc containsString:m]) return YES;
+    return NO;
+}
+
+static BOOL IsAdSection(id renderers) {
+    NSArray *items = KV(KV(renderers, @"itemSectionRenderer"), @"contentsArray");
+    id first = [items isKindOfClass:NSArray.class] ? items.firstObject : nil;
+    if (!first) return NO;
+    for (NSString *k in @[@"hasPromotedVideoRenderer", @"hasCompactPromotedVideoRenderer",
+                          @"hasPromotedVideoInlineMutedRenderer"])
+        if ([KV(first, k) boolValue]) return YES;
+    return IsAdElement(KV(first, @"elementRenderer"));
+}
+
+%hook YTInnerTubeCollectionViewController
+- (void)loadWithModel:(id)model {
+    if (ADS_OFF && [model isKindOfClass:%c(YTISectionListRenderer)]) {
+        NSMutableArray *contents = KV(model, @"contentsArray");
+        if ([contents isKindOfClass:NSMutableArray.class]) {
+            NSIndexSet *ads = [contents indexesOfObjectsPassingTest:^BOOL(id r, NSUInteger i, BOOL *stop) {
+                return IsAdSection(r);
+            }];
+            [contents removeObjectsAtIndexes:ads];
+        }
+    }
+    %orig;
 }
 %end
 
 // ---------- 2. Background playback ----------
 
-%hook YTSingleVideo
-- (BOOL)isAirPlayPlaying { return SettingsEnabled(@"background") ? YES : %orig; }
+#define BG_ON SettingsEnabled(@"background")
+
+%hook YTIPlayabilityStatus
+- (BOOL)isPlayableInBackground { return BG_ON ? YES : %orig; }
 %end
 
-%hook YTIPlayerStatsClientPlaybackNonceSupportedRenderer
-- (BOOL)backgroundable { return SettingsEnabled(@"background") ? YES : %orig; }
+%hook MLVideo
+- (BOOL)playableInBackground { return BG_ON ? YES : %orig; }
 %end
 
-%hook MLABRPolicy
-- (BOOL)isPlaybackBackgroundable { return SettingsEnabled(@"background") ? YES : %orig; }
+%hook YTIBackgroundOfflineSettingCategoryEntryRenderer
+- (BOOL)isBackgroundEnabled { return BG_ON ? YES : %orig; }
 %end
 
 // Force audio session to .playback so sound continues when screen locks.
