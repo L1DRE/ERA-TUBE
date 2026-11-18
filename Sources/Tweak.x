@@ -39,8 +39,15 @@ static id KV(id obj, NSString *key) {
     @try { return [obj valueForKey:key]; } @catch (__unused id e) { return nil; }
 }
 
+// Ad elements carry ad-impression logging data; ordinary content does not.
+static BOOL HasAdLoggingData(id element) {
+    if (![KV(element, @"hasCompatibilityOptions") boolValue]) return NO;
+    return [KV(KV(element, @"compatibilityOptions"), @"hasAdLoggingData") boolValue];
+}
+
 static BOOL IsAdElement(id element) {
     if (!element) return NO;
+    if (HasAdLoggingData(element)) return YES;
     static NSArray *markers;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
@@ -66,6 +73,15 @@ static BOOL IsAdSection(id renderers) {
         if ([KV(first, k) boolValue]) return YES;
     return IsAdElement(KV(first, @"elementRenderer"));
 }
+
+// Catches ad cards wherever they render (feed, search, under the player),
+// even when they are not the first item of their section.
+// Only the cheap flag check here: -description is costly and may read elementData.
+%hook YTIElementRenderer
+- (NSData *)elementData {
+    return (ADS_OFF && HasAdLoggingData(self)) ? nil : %orig;
+}
+%end
 
 %hook YTInnerTubeCollectionViewController
 - (void)loadWithModel:(id)model {
