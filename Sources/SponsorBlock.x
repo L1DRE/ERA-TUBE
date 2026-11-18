@@ -38,6 +38,11 @@ static UIColor *CategoryColor(NSString *category) {
                             blue:(v & 0xFF) / 255.0 alpha:0.9];
 }
 
+static id KVBar(id obj, NSString *key) {
+    if (!obj) return nil;
+    @try { return [obj valueForKey:key]; } @catch (__unused id e) { return nil; }
+}
+
 static void DrawMarkers(UIView *bar) {
     for (UIView *v in [bar.subviews copy]) if (v.tag == kMarkerTag) [v removeFromSuperview];
 
@@ -51,27 +56,43 @@ static void DrawMarkers(UIView *bar) {
                  bar.bounds.size.width, bar.bounds.size.height, bar.window ? @"yes" : @"no");
     }
 
-    if (!SettingsEnabled(@"sponsorBlock") || gDuration <= 0 || !gSegments.count) return;
-    // Only bar-shaped views: never paint over a whole player container.
-    if (bar.bounds.size.height > 40 || bar.bounds.size.width < 50) return;
+    if (!SettingsEnabled(@"sponsorBlock") || !gSegments.count) return;
+
+    // The visible progress track is a decoration subview; markers sit exactly on it.
+    UIView *track = nil;
+    for (UIView *v in bar.subviews) {
+        NSString *n = NSStringFromClass(v.class);
+        if ([n isEqualToString:@"YTPlayerBarRectangleDecorationView"]) { track = v; break; }
+        if (!track && [n isEqualToString:@"YTPlayerBarProgressDecorationView"]) track = v;
+    }
+    // Without a track, only draw on bar-shaped views, never over a whole container.
+    if (!track && (bar.bounds.size.height > 40 || bar.bounds.size.width < 50)) return;
+
+    // Duration fallback from the bar itself (its own total time or its model).
+    CGFloat duration = gDuration;
+    if (duration <= 0) duration = [KVBar(bar, @"totalTime") doubleValue];
+    if (duration <= 0) duration = [KVBar(KVBar(KVBar(bar, @"_model"), @"playingState"), @"totalTimeSec") doubleValue];
+    if (duration <= 0) return;
 
     static NSString *loggedFor;
     if (![loggedFor isEqualToString:gSegVideoId]) {
         loggedFor = gSegVideoId;
-        YTModLog(@"SponsorBlock: drawing %lu marker(s) on %@, duration %.0fs",
-                 (unsigned long)gSegments.count, cls, gDuration);
+        YTModLog(@"SponsorBlock: drawing %lu marker(s) on %@ (track %@), duration %.0fs",
+                 (unsigned long)gSegments.count, cls, track ? NSStringFromClass(track.class) : @"none", duration);
     }
 
-    CGFloat w = bar.bounds.size.width, h = 3;
-    CGFloat y = (bar.bounds.size.height - h) / 2;
+    CGFloat w = bar.bounds.size.width;
+    CGFloat h = track ? MAX(2, track.frame.size.height) : 3;
+    CGFloat y = track ? track.frame.origin.y : (bar.bounds.size.height - h) / 2;
     for (NSDictionary *seg in gSegments) {
         CGFloat start = [seg[@"start"] doubleValue], end = [seg[@"end"] doubleValue];
-        UIView *m = [[UIView alloc] initWithFrame:CGRectMake(w * start / gDuration, y,
-                                                             MAX(2, w * (end - start) / gDuration), h)];
+        UIView *m = [[UIView alloc] initWithFrame:CGRectMake(w * start / duration, y,
+                                                             MAX(2, w * (end - start) / duration), h)];
         m.tag = kMarkerTag;
         m.userInteractionEnabled = NO;
         m.backgroundColor = CategoryColor(seg[@"category"]);
-        [bar addSubview:m];
+        if (track) [bar insertSubview:m aboveSubview:track];
+        else [bar addSubview:m];
     }
 }
 
@@ -237,4 +258,15 @@ static void BarDidLayout(UIView *bar) {
 
 %hook YTPlayerBarView
 - (void)layoutSubviews { %orig; BarDidLayout(self); }
+%end
+
+// The container knows which bar is current: the modular bar (via its controller's
+// view) in newer designs, the segmentable inline bar in older ones.
+%hook YTInlinePlayerBarContainerView
+- (void)layoutSubviews {
+    %orig;
+    id bar = KVBar(self, @"modularPlayerBar") ?: KVBar(self, @"segmentablePlayerBar");
+    if (![bar isKindOfClass:UIView.class]) bar = KVBar(bar, @"view");
+    if ([bar isKindOfClass:UIView.class]) BarDidLayout(bar);
+}
 %end

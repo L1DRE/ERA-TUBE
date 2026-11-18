@@ -68,3 +68,6 @@
 
 @interface YTPlayerBarView : UIView
 @end
+
+@interface YTInlinePlayerBarContainerView : UIView
+@end
