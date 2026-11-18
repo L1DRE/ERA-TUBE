@@ -43,3 +43,5 @@
 "Export debug log" = "Экспорт журнала отладки";
 "Also skip intros, outros, previews and filler" = "Также пропускать заставки, концовки, анонсы и отступления";
 "Skipped segment" = "Отрезок пропущен";
+"Sign in without other Google apps" = "Вход без других приложений Google";
+"Account" = "Аккаунт";

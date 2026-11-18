@@ -24,6 +24,7 @@ const YTModOption kYTModOptions[] = {
     {"sponsorBlockExtra", "Also skip intros, outros, previews and filler", "Playback"},
     {"hideShorts",   "Hide Shorts tab",           "UI"},
     {"downloader",   "Downloader button",         "Downloader"},
+    {"isolateSignIn", "Sign in without other Google apps", "Account"},
 };
 const NSInteger kYTModOptionCount =
     sizeof(kYTModOptions) / sizeof(kYTModOptions[0]);

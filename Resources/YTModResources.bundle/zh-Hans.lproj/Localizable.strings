@@ -38,3 +38,5 @@
 "Export debug log" = "导出调试日志";
 "Also skip intros, outros, previews and filler" = "同时跳过片头、片尾、预告和题外内容";
 "Skipped segment" = "已跳过片段";
+"Sign in without other Google apps" = "不通过其他 Google 应用登录";
+"Account" = "账号";

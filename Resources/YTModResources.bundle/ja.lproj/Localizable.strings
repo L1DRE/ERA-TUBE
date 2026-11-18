@@ -38,3 +38,5 @@
 "Export debug log" = "デバッグログを書き出す";
 "Also skip intros, outros, previews and filler" = "イントロ・アウトロ・予告・脱線もスキップ";
 "Skipped segment" = "区間をスキップしました";
+"Sign in without other Google apps" = "他のGoogleアプリを使わずにログイン";
+"Account" = "アカウント";

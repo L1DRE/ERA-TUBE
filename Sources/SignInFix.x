@@ -6,6 +6,9 @@
 #import <Foundation/Foundation.h>
 #import <Security/Security.h>
 #import <objc/runtime.h>
+#import <UIKit/UIKit.h>
+#import "Settings.h"
+#import "Diagnostics.h"
 
 static NSString *KeychainAccessGroup(void) {
     static NSString *group;
@@ -42,7 +45,34 @@ static NSString *KeychainAccessGroup(void) {
 %end
 %end
 
+// With other Google apps installed, sign-in hands off to them, and Google rejects
+// the re-signed app. Answering "not installed" for their URL schemes makes YouTube
+// fall back to its in-app web sign-in. Opening those URLs still works.
+static BOOL IsGoogleAppScheme(NSString *scheme) {
+    NSString *s = scheme.lowercaseString;
+    return [s hasPrefix:@"com.google."] || [s hasPrefix:@"googlechrome"] ||
+           [s hasPrefix:@"googlegmail"] || [s hasPrefix:@"googleapp"] ||
+           [s hasPrefix:@"gsa"] || [s hasPrefix:@"googleaccounts"];
+}
+
+%group CanOpenURL
+%hook UIApplication
+- (BOOL)canOpenURL:(NSURL *)url {
+    NSString *scheme = url.scheme ?: @"";
+    static NSMutableSet *seen;
+    if (!seen) seen = [NSMutableSet set];
+    BOOL hide = SettingsEnabled(@"isolateSignIn") && IsGoogleAppScheme(scheme);
+    if (seen.count < 60 && ![seen containsObject:scheme]) {
+        [seen addObject:scheme];
+        YTModLog(@"canOpenURL scheme %@%@", scheme, hide ? @" -> hidden" : @"");
+    }
+    return hide ? NO : %orig;
+}
+%end
+%end
+
 %ctor {
     if (objc_getClass("SSOKeychainHelper")) %init(KeychainHelper);
     if (objc_getClass("SSOKeychainCore"))   %init(KeychainCore);
+    %init(CanOpenURL);
 }
