@@ -11,6 +11,31 @@
 static NSString *gSegVideoId;          // video the segments below belong to
 static NSArray<NSArray *> *gSegments;  // @[ @[start, end], ... ]
 static NSMutableSet<NSNumber *> *gSkipped;
+static CGFloat gDuration;              // video length in seconds, for marker positions
+static NSHashTable<UIView *> *gBars;   // live player bars to redraw markers on
+
+static const NSInteger kMarkerTag = 0x5B5B;
+
+static void DrawMarkers(UIView *bar) {
+    for (UIView *v in [bar.subviews copy]) if (v.tag == kMarkerTag) [v removeFromSuperview];
+    if (!SettingsEnabled(@"sponsorBlock") || gDuration <= 0 || !gSegments.count) return;
+
+    CGFloat w = bar.bounds.size.width, h = 3;
+    CGFloat y = (bar.bounds.size.height - h) / 2;
+    for (NSArray *seg in gSegments) {
+        CGFloat start = [seg[0] doubleValue], end = [seg[1] doubleValue];
+        UIView *m = [[UIView alloc] initWithFrame:CGRectMake(w * start / gDuration, y,
+                                                             MAX(2, w * (end - start) / gDuration), h)];
+        m.tag = kMarkerTag;
+        m.userInteractionEnabled = NO;
+        m.backgroundColor = [UIColor colorWithRed:0 green:0.83 blue:0 alpha:0.9]; // SponsorBlock green
+        [bar addSubview:m];
+    }
+}
+
+static void RefreshMarkers(void) {
+    for (UIView *bar in gBars) [bar setNeedsLayout];
+}
 
 static NSString *SHA256Prefix(NSString *s, NSUInteger len) {
     NSData *d = [s dataUsingEncoding:NSUTF8StringEncoding];
@@ -25,6 +50,8 @@ static void FetchSegments(NSString *videoId) {
     gSegVideoId = videoId;
     gSegments = @[];
     gSkipped = [NSMutableSet set];
+    gDuration = 0;
+    RefreshMarkers();
 
     NSString *cats = @"[\"sponsor\",\"selfpromo\",\"interaction\"]";
     NSURLComponents *c = [NSURLComponents componentsWithString:
@@ -47,17 +74,22 @@ static void FetchSegments(NSString *videoId) {
             return;
         }
         NSMutableArray *segs = [NSMutableArray array];
+        CGFloat apiDuration = 0;
         for (NSDictionary *v in json) {
             if (![v isKindOfClass:NSDictionary.class] || ![v[@"videoID"] isEqual:videoId]) continue;
             for (NSDictionary *s in v[@"segments"]) {
                 NSArray *seg = s[@"segment"];
                 if ([seg isKindOfClass:NSArray.class] && seg.count == 2) [segs addObject:seg];
+                apiDuration = MAX(apiDuration, [s[@"videoDuration"] doubleValue]);
             }
         }
         YTModLog(@"SponsorBlock: HTTP %ld, %lu video(s) share the hash prefix, %lu segment(s) for this video",
                  (long)status, (unsigned long)[json count], (unsigned long)segs.count);
         dispatch_async(dispatch_get_main_queue(), ^{
-            if ([gSegVideoId isEqualToString:videoId]) gSegments = segs;
+            if (![gSegVideoId isEqualToString:videoId]) return;
+            gSegments = segs;
+            if (apiDuration > 0) gDuration = apiDuration;
+            RefreshMarkers();
         });
     }] resume];
 }
@@ -97,6 +129,14 @@ static void SponsorBlockTick(YTPlayerViewController *player) {
     if (!vid.length) return;
     if (![vid isEqualToString:gSegVideoId]) { FetchSegments(vid); return; }
 
+    // Fallback duration from the player, only while the main video (not an ad) is current.
+    if (gDuration <= 0 && gSegments.count &&
+        [player respondsToSelector:@selector(currentVideoTotalMediaTime)] &&
+        (!content || [[player contentVideoID] isEqualToString:[player currentVideoID]])) {
+        gDuration = [player currentVideoTotalMediaTime];
+        if (gDuration > 0) RefreshMarkers();
+    }
+
     CGFloat t = content ? [player contentVideoMediaTime] : [player currentVideoMediaTime];
     for (NSUInteger i = 0; i < gSegments.count; i++) {
         CGFloat start = [gSegments[i][0] doubleValue], end = [gSegments[i][1] doubleValue];
@@ -124,4 +164,14 @@ static void SponsorBlockTick(YTPlayerViewController *player) {
     SponsorBlockTick(self);
 }
 
+%end
+
+// Segment markers on the main video progress bar.
+%hook YTInlinePlayerBarView
+- (void)layoutSubviews {
+    %orig;
+    if (!gBars) gBars = [NSHashTable weakObjectsHashTable];
+    [gBars addObject:self];
+    DrawMarkers(self);
+}
 %end
