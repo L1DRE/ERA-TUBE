@@ -31,7 +31,12 @@ static void FetchSegments(NSString *videoId) {
         [@"https://sponsor.ajay.app/api/skipSegments/" stringByAppendingString:SHA256Prefix(videoId, 4)]];
     c.queryItems = @[[NSURLQueryItem queryItemWithName:@"categories" value:cats]];
 
-    YTModLog(@"SponsorBlock: fetching segments for new video");
+    // Shape only (no ID itself): a real video ID is 11 chars of [A-Za-z0-9_-].
+    NSCharacterSet *bad = [[NSCharacterSet characterSetWithCharactersInString:
+        @"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"] invertedSet];
+    BOOL wellFormed = videoId.length == 11 && [videoId rangeOfCharacterFromSet:bad].location == NSNotFound;
+    YTModLog(@"SponsorBlock: fetching segments for new video (id length %lu, %@)",
+             (unsigned long)videoId.length, wellFormed ? @"well-formed" : @"MALFORMED");
     [[[NSURLSession sharedSession] dataTaskWithURL:c.URL
         completionHandler:^(NSData *data, NSURLResponse *resp, NSError *err) {
         NSInteger status = [resp isKindOfClass:NSHTTPURLResponse.class] ? ((NSHTTPURLResponse *)resp).statusCode : 0;
@@ -49,7 +54,8 @@ static void FetchSegments(NSString *videoId) {
                 if ([seg isKindOfClass:NSArray.class] && seg.count == 2) [segs addObject:seg];
             }
         }
-        YTModLog(@"SponsorBlock: HTTP %ld, %lu segment(s) for this video", (long)status, (unsigned long)segs.count);
+        YTModLog(@"SponsorBlock: HTTP %ld, %lu video(s) share the hash prefix, %lu segment(s) for this video",
+                 (long)status, (unsigned long)[json count], (unsigned long)segs.count);
         dispatch_async(dispatch_get_main_queue(), ^{
             if ([gSegVideoId isEqualToString:videoId]) gSegments = segs;
         });
@@ -84,11 +90,14 @@ static void SponsorBlockTick(YTPlayerViewController *player) {
         return;
     }
 
-    NSString *vid = [player currentVideoID];
+    // "content" variants refer to the main video even while an ad plays.
+    BOOL content = [player respondsToSelector:@selector(contentVideoID)] &&
+                   [player respondsToSelector:@selector(contentVideoMediaTime)];
+    NSString *vid = content ? [player contentVideoID] : [player currentVideoID];
     if (!vid.length) return;
     if (![vid isEqualToString:gSegVideoId]) { FetchSegments(vid); return; }
 
-    CGFloat t = [player currentVideoMediaTime];
+    CGFloat t = content ? [player contentVideoMediaTime] : [player currentVideoMediaTime];
     for (NSUInteger i = 0; i < gSegments.count; i++) {
         CGFloat start = [gSegments[i][0] doubleValue], end = [gSegments[i][1] doubleValue];
         if (t >= start && t < end - 0.5 && ![gSkipped containsObject:@(i)]) {

@@ -74,17 +74,10 @@ static void DumpPlayerMethods(void) {
     YTModLog(@"YTPlayerViewController time/seek/videoID methods: %@", [hits componentsJoinedByString:@" "]);
 }
 
-static void DumpRuntimeInfo(void) {
-    YTModLog(@"=== YTMod diagnostics: YouTube %@ ===",
-             NSBundle.mainBundle.infoDictionary[@"CFBundleShortVersionString"]);
-    DumpPlayerMethods();
-
-    for (NSString *name in @[@"YTIPlayerResponse", @"YTIPlayabilityStatus"])
-        YTModLog(@"fields %@: %@", name,
-                 [GPBFieldNames(objc_getClass(name.UTF8String)) componentsJoinedByString:@", "]);
-
+// Player progress-bar classes, to draw SponsorBlock segment markers on them.
+static void DumpPlayerBarClasses(void) {
     NSRegularExpression *re = [NSRegularExpression
-        regularExpressionWithPattern:@"(Ad|Ads)[A-Z]|Ad$|Ads$|Sponsor|Promo|SkipAd|Instream|Midroll|Preroll"
+        regularExpressionWithPattern:@"PlayerBar|Scrubber|ProgressBar|TimelineBar|SegmentableInline"
                              options:0 error:nil];
     unsigned int count = 0;
     const char **names = objc_copyClassNamesForImage(
@@ -96,10 +89,36 @@ static void DumpRuntimeInfo(void) {
     }
     free(names);
     [matches sortUsingSelector:@selector(compare:)];
-    YTModLog(@"ad-like classes (%lu of %u):", (unsigned long)matches.count, count);
-    for (NSUInteger i = 0; i < matches.count; i += 40)
-        YTModLog(@"  %@", [[matches subarrayWithRange:NSMakeRange(i, MIN(40, matches.count - i))]
-                              componentsJoinedByString:@" "]);
+    YTModLog(@"player-bar classes (%lu): %@", (unsigned long)matches.count,
+             [matches componentsJoinedByString:@" "]);
+
+    for (NSString *name in matches) {
+        if (![name hasSuffix:@"View"] || [name containsString:@"Ad"]) continue;
+        unsigned int n = 0;
+        Method *methods = class_copyMethodList(objc_getClass(name.UTF8String), &n);
+        NSMutableArray *hits = [NSMutableArray array];
+        for (unsigned int i = 0; i < n; i++) {
+            NSString *m = NSStringFromSelector(method_getName(methods[i]));
+            NSString *lc = m.lowercaseString;
+            if ([lc containsString:@"segment"] || [lc containsString:@"chapter"] ||
+                [lc containsString:@"marker"] || [lc containsString:@"duration"] ||
+                [lc isEqualToString:@"layoutsubviews"])
+                [hits addObject:m];
+        }
+        free(methods);
+        if (hits.count) YTModLog(@"  %@: %@", name, [hits componentsJoinedByString:@" "]);
+    }
+}
+
+static void DumpRuntimeInfo(void) {
+    YTModLog(@"=== YTMod diagnostics: YouTube %@ ===",
+             NSBundle.mainBundle.infoDictionary[@"CFBundleShortVersionString"]);
+    DumpPlayerMethods();
+    DumpPlayerBarClasses();
+
+    for (NSString *name in @[@"YTIPlayerResponse", @"YTIPlayabilityStatus"])
+        YTModLog(@"fields %@: %@", name,
+                 [GPBFieldNames(objc_getClass(name.UTF8String)) componentsJoinedByString:@", "]);
 }
 
 %ctor {
