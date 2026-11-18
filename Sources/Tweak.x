@@ -11,11 +11,27 @@
 #define ADS_OFF       SettingsEnabled(@"adsOff")
 #define VIDEO_ADS_OFF SettingsEnabled(@"videoAdsOff")
 
-// Video ads: treat every video as unmonetized so no ad breaks are scheduled.
-// Stripping the ads context / spam signals from player requests, or nulling the
-// ads playback coordinator, made every video fail to load on YouTube 21.46.
+static id KV(id obj, NSString *key);
+
+// Video ads: leave the player request untouched (stripping the ads context,
+// spam signals or the ads playback coordinator made every video fail to load on
+// YouTube 21.46) and instead empty the ad lists once the response is parsed,
+// the same fields web ad blockers strip.
+static void StripPlayerAds(id response) {
+    for (NSString *key in @[@"adPlacementsArray", @"playerAdsArray", @"adSlotsArray"]) {
+        id list = KV(response, key);
+        if ([list isKindOfClass:NSMutableArray.class]) [list removeAllObjects];
+    }
+}
+
 %hook YTIPlayerResponse
 - (BOOL)isMonetized { return VIDEO_ADS_OFF ? NO : %orig; }
+
+// GPBMessage parse entry point; inherited, so Substrate adds the override here.
+- (void)mergeFromCodedInputStream:(id)input extensionRegistry:(id)registry {
+    %orig;
+    if (VIDEO_ADS_OFF) StripPlayerAds(self);
+}
 %end
 
 // Feed / search ads arrive as sections whose first item is a promoted renderer
