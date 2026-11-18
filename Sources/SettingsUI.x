@@ -6,6 +6,7 @@
 #import "Settings.h"
 #import "L10n.h"
 #import "YTHeaders.h"
+#import "Diagnostics.h"
 
 // --------- VC ---------
 
@@ -179,6 +180,18 @@ static const NSInteger kYTModCategory = 1085;
         detailTextBlock:nil
         selectBlock:^BOOL(id cell, NSUInteger arg1) {
             [delegate presentViewController:YTModSettingsNav() animated:YES completion:nil];
+            return YES;
+        }]];
+
+    [items addObject:[itemCls itemWithTitle:L10n(@"Export debug log")
+        titleDescription:nil
+        accessibilityIdentifier:nil
+        detailTextBlock:nil
+        selectBlock:^BOOL(id cell, NSUInteger arg1) {
+            UIActivityViewController *share = [[UIActivityViewController alloc]
+                initWithActivityItems:@[YTModLogFileURL()] applicationActivities:nil];
+            share.popoverPresentationController.sourceView = delegate.view;
+            [delegate presentViewController:share animated:YES completion:nil];
             return YES;
         }]];
 

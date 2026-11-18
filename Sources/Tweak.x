@@ -5,6 +5,7 @@
 #import <AVKit/AVKit.h>
 #import "Settings.h"
 #import "YTHeaders.h"
+#import "Diagnostics.h"
 
 // ---------- 1. Ad removal ----------
 
@@ -17,20 +18,39 @@ static id KV(id obj, NSString *key);
 // spam signals or the ads playback coordinator made every video fail to load on
 // YouTube 21.46) and instead empty the ad lists once the response is parsed,
 // the same fields web ad blockers strip.
-static void StripPlayerAds(id response) {
+static void StripPlayerAds(id response, NSString *via) {
+    static int logged;
+    NSMutableArray *found = [NSMutableArray array];
     for (NSString *key in @[@"adPlacementsArray", @"playerAdsArray", @"adSlotsArray"]) {
         id list = KV(response, key);
+        [found addObject:[NSString stringWithFormat:@"%@=%@", key,
+            list ? [NSString stringWithFormat:@"%@(%lu)", [list class], (unsigned long)[list count]] : @"nil"]];
         if ([list isKindOfClass:NSMutableArray.class]) [list removeAllObjects];
     }
+    if (logged++ < 20) YTModLog(@"strip via %@: %@", via, [found componentsJoinedByString:@" "]);
 }
 
 %hook YTIPlayerResponse
-- (BOOL)isMonetized { return VIDEO_ADS_OFF ? NO : %orig; }
+- (BOOL)isMonetized {
+    static int logged;
+    if (logged++ < 5) YTModLog(@"isMonetized called");
+    return VIDEO_ADS_OFF ? NO : %orig;
+}
 
-// GPBMessage parse entry point; inherited, so Substrate adds the override here.
+// GPBMessage parse entry points; inherited, so Substrate adds overrides here.
+// Several are hooked because it is not known which one YouTube 21.46 uses.
 - (void)mergeFromCodedInputStream:(id)input extensionRegistry:(id)registry {
     %orig;
-    if (VIDEO_ADS_OFF) StripPlayerAds(self);
+    if (VIDEO_ADS_OFF) StripPlayerAds(self, @"mergeFromCodedInputStream");
+}
+- (void)mergeFromData:(NSData *)data extensionRegistry:(id)registry {
+    %orig;
+    if (VIDEO_ADS_OFF) StripPlayerAds(self, @"mergeFromData");
+}
++ (id)parseFromData:(NSData *)data error:(NSError **)error {
+    id r = %orig;
+    if (VIDEO_ADS_OFF && r) StripPlayerAds(r, @"parseFromData");
+    return r;
 }
 %end
 
