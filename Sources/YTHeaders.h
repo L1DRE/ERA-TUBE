@@ -54,8 +54,8 @@
 - (NSString *)contentVideoID;
 - (CGFloat)contentVideoMediaTime;
 - (CGFloat)currentVideoTotalMediaTime;
+- (void)seekToTime:(CGFloat)time;
 @end
 
 @interface YTInlinePlayerBarView : UIView
-- (void)seekToTime:(CGFloat)time;
 @end
