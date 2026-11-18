@@ -1,4 +1,5 @@
-// Built-in SponsorBlock: auto-skips sponsor/self-promo/interaction segments.
+// Built-in SponsorBlock: auto-skips sponsor/self-promo/interaction segments and,
+// behind a second toggle, the extra categories ReVanced uses.
 // Uses the hash-prefix endpoint so the server never sees the exact video ID.
 
 #import <UIKit/UIKit.h>
@@ -9,12 +10,33 @@
 #import "Diagnostics.h"
 
 static NSString *gSegVideoId;          // video the segments below belong to
-static NSArray<NSArray *> *gSegments;  // @[ @[start, end], ... ]
+static NSArray<NSDictionary *> *gSegments;  // @[ @{start, end, category}, ... ]
 static NSMutableSet<NSNumber *> *gSkipped;
 static CGFloat gDuration;              // video length in seconds, for marker positions
 static NSHashTable<UIView *> *gBars;   // live player bars to redraw markers on
 
 static const NSInteger kMarkerTag = 0x5B5B;
+
+static NSArray<NSString *> *Categories(void) {
+    NSMutableArray *c = [@[@"sponsor", @"selfpromo", @"interaction"] mutableCopy];
+    if (SettingsEnabled(@"sponsorBlockExtra"))
+        [c addObjectsFromArray:@[@"intro", @"outro", @"preview", @"filler", @"music_offtopic"]];
+    return c;
+}
+
+// SponsorBlock's standard category colors.
+static UIColor *CategoryColor(NSString *category) {
+    static NSDictionary *hex;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        hex = @{@"sponsor": @0x00D400, @"selfpromo": @0xFFFF00, @"interaction": @0xCC00FF,
+                @"intro": @0x00FFFF, @"outro": @0x0202ED, @"preview": @0x008FD6,
+                @"filler": @0x7300FF, @"music_offtopic": @0xFF9900};
+    });
+    unsigned int v = [hex[category] unsignedIntValue] ?: 0x00D400;
+    return [UIColor colorWithRed:((v >> 16) & 0xFF) / 255.0 green:((v >> 8) & 0xFF) / 255.0
+                            blue:(v & 0xFF) / 255.0 alpha:0.9];
+}
 
 static void DrawMarkers(UIView *bar) {
     for (UIView *v in [bar.subviews copy]) if (v.tag == kMarkerTag) [v removeFromSuperview];
@@ -22,13 +44,13 @@ static void DrawMarkers(UIView *bar) {
 
     CGFloat w = bar.bounds.size.width, h = 3;
     CGFloat y = (bar.bounds.size.height - h) / 2;
-    for (NSArray *seg in gSegments) {
-        CGFloat start = [seg[0] doubleValue], end = [seg[1] doubleValue];
+    for (NSDictionary *seg in gSegments) {
+        CGFloat start = [seg[@"start"] doubleValue], end = [seg[@"end"] doubleValue];
         UIView *m = [[UIView alloc] initWithFrame:CGRectMake(w * start / gDuration, y,
                                                              MAX(2, w * (end - start) / gDuration), h)];
         m.tag = kMarkerTag;
         m.userInteractionEnabled = NO;
-        m.backgroundColor = [UIColor colorWithRed:0 green:0.83 blue:0 alpha:0.9]; // SponsorBlock green
+        m.backgroundColor = CategoryColor(seg[@"category"]);
         [bar addSubview:m];
     }
 }
@@ -53,7 +75,8 @@ static void FetchSegments(NSString *videoId) {
     gDuration = 0;
     RefreshMarkers();
 
-    NSString *cats = @"[\"sponsor\",\"selfpromo\",\"interaction\"]";
+    NSData *catsJSON = [NSJSONSerialization dataWithJSONObject:Categories() options:0 error:nil];
+    NSString *cats = [[NSString alloc] initWithData:catsJSON encoding:NSUTF8StringEncoding];
     NSURLComponents *c = [NSURLComponents componentsWithString:
         [@"https://sponsor.ajay.app/api/skipSegments/" stringByAppendingString:SHA256Prefix(videoId, 4)]];
     c.queryItems = @[[NSURLQueryItem queryItemWithName:@"categories" value:cats]];
@@ -79,7 +102,12 @@ static void FetchSegments(NSString *videoId) {
             if (![v isKindOfClass:NSDictionary.class] || ![v[@"videoID"] isEqual:videoId]) continue;
             for (NSDictionary *s in v[@"segments"]) {
                 NSArray *seg = s[@"segment"];
-                if ([seg isKindOfClass:NSArray.class] && seg.count == 2) [segs addObject:seg];
+                // actionType "full" labels the whole video; "mute" isn't a skip.
+                NSString *action = s[@"actionType"];
+                if (action && ![action isEqualToString:@"skip"]) continue;
+                if ([seg isKindOfClass:NSArray.class] && seg.count == 2)
+                    [segs addObject:@{@"start": seg[0], @"end": seg[1],
+                                      @"category": s[@"category"] ?: @"sponsor"}];
                 apiDuration = MAX(apiDuration, [s[@"videoDuration"] doubleValue]);
             }
         }
@@ -139,12 +167,13 @@ static void SponsorBlockTick(YTPlayerViewController *player) {
 
     CGFloat t = content ? [player contentVideoMediaTime] : [player currentVideoMediaTime];
     for (NSUInteger i = 0; i < gSegments.count; i++) {
-        CGFloat start = [gSegments[i][0] doubleValue], end = [gSegments[i][1] doubleValue];
+        CGFloat start = [gSegments[i][@"start"] doubleValue], end = [gSegments[i][@"end"] doubleValue];
         if (t >= start && t < end - 0.5 && ![gSkipped containsObject:@(i)]) {
             [gSkipped addObject:@(i)];
-            YTModLog(@"SponsorBlock: skipping %.1f -> %.1f", start, end);
+            YTModLog(@"SponsorBlock: skipping %@ %.1f -> %.1f", gSegments[i][@"category"], start, end);
             [player seekToTime:end];
-            ShowToast(player.view, L10n(@"Skipped sponsor segment"));
+            ShowToast(player.view, L10n([gSegments[i][@"category"] isEqualToString:@"sponsor"]
+                                        ? @"Skipped sponsor segment" : @"Skipped segment"));
             break;
         }
     }

@@ -36,3 +36,5 @@
 "Block ads in feed" = "フィードの広告をブロック";
 "Block ads in videos" = "動画内の広告をブロック";
 "Export debug log" = "デバッグログを書き出す";
+"Also skip intros, outros, previews and filler" = "イントロ・アウトロ・予告・脱線もスキップ";
+"Skipped segment" = "区間をスキップしました";

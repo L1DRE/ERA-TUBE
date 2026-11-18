@@ -36,3 +36,5 @@
 "Block ads in feed" = "Блокувати рекламу в стрічці";
 "Block ads in videos" = "Блокувати рекламу у відео";
 "Export debug log" = "Експорт журналу налагодження";
+"Also skip intros, outros, previews and filler" = "Також пропускати заставки, кінцівки, анонси та відступи";
+"Skipped segment" = "Відрізок пропущено";

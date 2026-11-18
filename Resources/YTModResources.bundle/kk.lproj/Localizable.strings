@@ -41,3 +41,5 @@
 "Block ads in feed" = "Лентадағы жарнаманы бұғаттау";
 "Block ads in videos" = "Бейнедегі жарнаманы бұғаттау";
 "Export debug log" = "Жөндеу журналын экспорттау";
+"Also skip intros, outros, previews and filler" = "Сондай-ақ кіріспе, соңы, анонс және шегіністерді өткізу";
+"Skipped segment" = "Бөлік өткізілді";

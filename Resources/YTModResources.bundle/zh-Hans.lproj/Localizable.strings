@@ -36,3 +36,5 @@
 "Block ads in feed" = "屏蔽信息流广告";
 "Block ads in videos" = "屏蔽视频内广告";
 "Export debug log" = "导出调试日志";
+"Also skip intros, outros, previews and filler" = "同时跳过片头、片尾、预告和题外内容";
+"Skipped segment" = "已跳过片段";

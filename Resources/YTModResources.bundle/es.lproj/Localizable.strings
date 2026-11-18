@@ -36,3 +36,5 @@
 "Block ads in feed" = "Bloquear anuncios en el feed";
 "Block ads in videos" = "Bloquear anuncios en vídeos";
 "Export debug log" = "Exportar registro de depuración";
+"Also skip intros, outros, previews and filler" = "Saltar también intros, finales, avances y relleno";
+"Skipped segment" = "Segmento omitido";

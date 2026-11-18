@@ -41,3 +41,5 @@
 "Block ads in feed" = "Block ads in feed";
 "Block ads in videos" = "Block ads in videos";
 "Export debug log" = "Export debug log";
+"Also skip intros, outros, previews and filler" = "Also skip intros, outros, previews and filler";
+"Skipped segment" = "Segment skipped";

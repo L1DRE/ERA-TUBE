@@ -21,6 +21,7 @@ const YTModOption kYTModOptions[] = {
     {"background",   "Background playback",       "Playback"},
     {"pip",          "Picture-in-Picture",        "Playback"},
     {"sponsorBlock", "Skip sponsor segments",     "Playback"},
+    {"sponsorBlockExtra", "Also skip intros, outros, previews and filler", "Playback"},
     {"hideShorts",   "Hide Shorts tab",           "UI"},
     {"downloader",   "Downloader button",         "Downloader"},
 };

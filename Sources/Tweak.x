@@ -89,6 +89,40 @@ static BOOL IsAdElement(id element) {
     return NO;
 }
 
+// Names of the set (has*) message fields of a GPB message: structure only, no content.
+static NSArray<NSString *> *SetFieldNames(id msg) {
+    if (![[msg class] respondsToSelector:@selector(descriptor)]) return @[];
+    NSMutableArray *set = [NSMutableArray array];
+    @try {
+        id desc = [[msg class] performSelector:@selector(descriptor)];
+        for (id field in [desc valueForKey:@"fields"]) {
+            NSString *name = [field valueForKey:@"name"];
+            if (!name.length) continue;
+            NSString *has = [NSString stringWithFormat:@"has%@%@",
+                             [[name substringToIndex:1] uppercaseString], [name substringFromIndex:1]];
+            if ([KV(msg, has) boolValue]) [set addObject:name];
+        }
+    } @catch (__unused id e) {}
+    return set;
+}
+
+// Logs each distinct feed-section shape once, to identify promo renderers.
+static void LogSectionShape(NSArray *itemFields, NSArray *elementFields) {
+    static NSMutableSet *seen;
+    if (!seen) seen = [NSMutableSet set];
+    NSString *shape = [NSString stringWithFormat:@"item[%@] element[%@]",
+                       [itemFields componentsJoinedByString:@","], [elementFields componentsJoinedByString:@","]];
+    if (seen.count < 60 && ![seen containsObject:shape]) {
+        [seen addObject:shape];
+        YTModLog(@"feed section: %@", shape);
+    }
+}
+
+static BOOL IsPromoField(NSString *name) {
+    NSString *lc = name.lowercaseString;
+    return [lc containsString:@"promo"] || [lc containsString:@"banner"] || [lc containsString:@"masthead"];
+}
+
 static BOOL IsAdSection(id renderers) {
     NSArray *items = KV(KV(renderers, @"itemSectionRenderer"), @"contentsArray");
     id first = [items isKindOfClass:NSArray.class] ? items.firstObject : nil;
@@ -96,7 +130,14 @@ static BOOL IsAdSection(id renderers) {
     for (NSString *k in @[@"hasPromotedVideoRenderer", @"hasCompactPromotedVideoRenderer",
                           @"hasPromotedVideoInlineMutedRenderer"])
         if ([KV(first, k) boolValue]) return YES;
-    return IsAdElement(KV(first, @"elementRenderer"));
+
+    NSArray *itemFields = SetFieldNames(first);
+    id element = KV(first, @"elementRenderer");
+    LogSectionShape(itemFields, element ? SetFieldNames(element) : @[]);
+
+    // Premium / YouTube self-promo banners (e.g. "Watch without delays – with Premium").
+    for (NSString *f in itemFields) if (IsPromoField(f)) return YES;
+    return IsAdElement(element);
 }
 
 // Catches ad cards wherever they render (feed, search, under the player),
