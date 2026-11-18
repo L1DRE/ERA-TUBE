@@ -1,7 +1,6 @@
 // Google sign-in fix for re-signed YouTube: the SSO keychain access group no
 // longer matches after sideloading, so point it at the group the new signature
-// actually grants. Bundle ID is deliberately not spoofed: doing that globally
-// crashed YouTube at launch on iOS 27.
+// actually grants.
 
 #import <Foundation/Foundation.h>
 #import <Security/Security.h>
@@ -45,28 +44,21 @@ static NSString *KeychainAccessGroup(void) {
 %end
 %end
 
-// With other Google apps installed, sign-in hands off to them, and Google rejects
-// the re-signed app. Answering "not installed" for their URL schemes makes YouTube
-// fall back to its in-app web sign-in. Opening those URLs still works.
-static BOOL IsGoogleAppScheme(NSString *scheme) {
-    NSString *s = scheme.lowercaseString;
-    return [s hasPrefix:@"com.google."] || [s hasPrefix:@"googlechrome"] ||
-           [s hasPrefix:@"googlegmail"] || [s hasPrefix:@"googleapp"] ||
-           [s hasPrefix:@"gsa"] || [s hasPrefix:@"googleaccounts"];
-}
+// Experimental: report the original bundle ID, which Google's web sign-in checks.
+// Spoofing from launch aborted YouTube in its initializers on iOS 27, so the spoof
+// only arms a few seconds after launch, once startup code has read the real ID.
+static NSString *const kYouTubeBundleID = @"com.google.ios.youtube";
+static BOOL gSpoofArmed;
 
-%group CanOpenURL
-%hook UIApplication
-- (BOOL)canOpenURL:(NSURL *)url {
-    NSString *scheme = url.scheme ?: @"";
-    static NSMutableSet *seen;
-    if (!seen) seen = [NSMutableSet set];
-    BOOL hide = SettingsEnabled(@"isolateSignIn") && IsGoogleAppScheme(scheme);
-    if (seen.count < 60 && ![seen containsObject:scheme]) {
-        [seen addObject:scheme];
-        YTModLog(@"canOpenURL scheme %@%@", scheme, hide ? @" -> hidden" : @"");
-    }
-    return hide ? NO : %orig;
+%group BundleSpoof
+%hook NSBundle
+- (NSString *)bundleIdentifier {
+    return (gSpoofArmed && self == NSBundle.mainBundle) ? kYouTubeBundleID : %orig;
+}
+- (id)objectForInfoDictionaryKey:(NSString *)key {
+    if (gSpoofArmed && self == NSBundle.mainBundle && [key isEqualToString:@"CFBundleIdentifier"])
+        return kYouTubeBundleID;
+    return %orig;
 }
 %end
 %end
@@ -74,5 +66,10 @@ static BOOL IsGoogleAppScheme(NSString *scheme) {
 %ctor {
     if (objc_getClass("SSOKeychainHelper")) %init(KeychainHelper);
     if (objc_getClass("SSOKeychainCore"))   %init(KeychainCore);
-    %init(CanOpenURL);
+    %init(BundleSpoof);
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (!SettingsEnabled(@"spoofBundleID")) return;
+        gSpoofArmed = YES;
+        YTModLog(@"sign-in fix: bundle ID spoof armed");
+    });
 }

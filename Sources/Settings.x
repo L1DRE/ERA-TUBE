@@ -24,7 +24,7 @@ const YTModOption kYTModOptions[] = {
     {"sponsorBlockExtra", "Also skip intros, outros, previews and filler", "Playback"},
     {"hideShorts",   "Hide Shorts tab",           "UI"},
     {"downloader",   "Downloader button",         "Downloader"},
-    {"isolateSignIn", "Sign in without other Google apps", "Account"},
+    {"spoofBundleID", "Fix Google sign-in (experimental)", "Account"},
 };
 const NSInteger kYTModOptionCount =
     sizeof(kYTModOptions) / sizeof(kYTModOptions[0]);
@@ -34,7 +34,8 @@ void SettingsLoad(void) {
     for (NSInteger i = 0; i < kYTModOptionCount; i++) {
         NSString *k = @(kYTModOptions[i].key);
         BOOL def = !([k isEqualToString:@"hideShorts"] ||
-                     [k isEqualToString:@"hideBranding"]);
+                     [k isEqualToString:@"hideBranding"] ||
+                     [k isEqualToString:@"spoofBundleID"]);
         gDefaults[k] = @(def);
     }
     NSDictionary *user = [NSDictionary dictionaryWithContentsOfFile:PrefsPath()];
