@@ -33,3 +33,5 @@
 
 "Skip sponsor segments" = "スポンサー区間をスキップ";
 "Skipped sponsor segment" = "スポンサー区間をスキップしました";
+"Block ads in feed" = "フィードの広告をブロック";
+"Block ads in videos" = "動画内の広告をブロック";

@@ -8,29 +8,14 @@
 
 // ---------- 1. Ad removal ----------
 
-#define ADS_OFF SettingsEnabled(@"adsOff")
+#define ADS_OFF       SettingsEnabled(@"adsOff")
+#define VIDEO_ADS_OFF SettingsEnabled(@"videoAdsOff")
 
-// Video ads: stop the ads context from being sent with player requests and
-// treat every video as unmonetized, so no ad breaks are scheduled.
+// Video ads: treat every video as unmonetized so no ad breaks are scheduled.
+// Stripping the ads context / spam signals from player requests, or nulling the
+// ads playback coordinator, made every video fail to load on YouTube 21.46.
 %hook YTIPlayerResponse
-- (BOOL)isMonetized { return ADS_OFF ? NO : %orig; }
-%end
-
-%hook YTAdsInnerTubeContextDecorator
-- (void)decorateContext:(id)context { if (!ADS_OFF) %orig; }
-%end
-
-%hook YTAccountScopedAdsInnerTubeContextDecorator
-- (void)decorateContext:(id)context { if (!ADS_OFF) %orig; }
-%end
-
-%hook YTDataUtils
-+ (id)spamSignalsDictionary              { return ADS_OFF ? nil : %orig; }
-+ (id)spamSignalsDictionaryWithoutIDFA   { return ADS_OFF ? nil : %orig; }
-%end
-
-%hook YTLocalPlaybackController
-- (id)createAdsPlaybackCoordinator { return ADS_OFF ? nil : %orig; }
+- (BOOL)isMonetized { return VIDEO_ADS_OFF ? NO : %orig; }
 %end
 
 // Feed / search ads arrive as sections whose first item is a promoted renderer

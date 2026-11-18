@@ -15,7 +15,8 @@ static NSString *PrefsPath(void) {
 
 // ---- каталог опций (ключ, заголовок, секция) ----
 const YTModOption kYTModOptions[] = {
-    {"adsOff",       "Block ads",                 "Ads"},
+    {"adsOff",       "Block ads in feed",         "Ads"},
+    {"videoAdsOff",  "Block ads in videos",       "Ads"},
     {"hideBranding", "Hide branding overlays",    "Ads"},
     {"background",   "Background playback",       "Playback"},
     {"pip",          "Picture-in-Picture",        "Playback"},
