@@ -71,38 +71,48 @@ static void ShowToast(UIView *host, NSString *text) {
                      completion:^(BOOL f) { [l removeFromSuperview]; }];
 }
 
-%hook YTPlayerViewController
-
-- (void)singleVideo:(id)video currentVideoTimeDidChange:(id)time {
-    %orig;
+static void SponsorBlockTick(YTPlayerViewController *player) {
     static int calls;
     if (calls++ == 0) YTModLog(@"SponsorBlock: time-change hook fires");
     if (!SettingsEnabled(@"sponsorBlock")) return;
 
-    // Guard: these selectors come from older YouTube builds.
-    if (![self respondsToSelector:@selector(currentVideoID)] ||
-        ![self respondsToSelector:@selector(currentVideoMediaTime)] ||
-        ![self respondsToSelector:@selector(seekToTime:)]) {
+    if (![player respondsToSelector:@selector(currentVideoID)] ||
+        ![player respondsToSelector:@selector(currentVideoMediaTime)] ||
+        ![player respondsToSelector:@selector(seekToTime:)]) {
         static BOOL warned;
         if (!warned) { warned = YES; YTModLog(@"SponsorBlock: player methods missing, disabled"); }
         return;
     }
 
-    NSString *vid = [self currentVideoID];
+    NSString *vid = [player currentVideoID];
     if (!vid.length) return;
     if (![vid isEqualToString:gSegVideoId]) { FetchSegments(vid); return; }
 
-    CGFloat t = [self currentVideoMediaTime];
+    CGFloat t = [player currentVideoMediaTime];
     for (NSUInteger i = 0; i < gSegments.count; i++) {
         CGFloat start = [gSegments[i][0] doubleValue], end = [gSegments[i][1] doubleValue];
         if (t >= start && t < end - 0.5 && ![gSkipped containsObject:@(i)]) {
             [gSkipped addObject:@(i)];
             YTModLog(@"SponsorBlock: skipping %.1f -> %.1f", start, end);
-            [self seekToTime:end];
-            ShowToast(self.view, L10n(@"Skipped sponsor segment"));
+            [player seekToTime:end];
+            ShowToast(player.view, L10n(@"Skipped sponsor segment"));
             break;
         }
     }
+}
+
+%hook YTPlayerViewController
+
+// YouTube 21.46 renamed the time callback (confirmed by the debug log); the
+// old name is kept for other builds.
+- (void)potentiallyMutatedSingleVideo:(id)video currentVideoTimeDidChange:(id)time {
+    %orig;
+    SponsorBlockTick(self);
+}
+
+- (void)singleVideo:(id)video currentVideoTimeDidChange:(id)time {
+    %orig;
+    SponsorBlockTick(self);
 }
 
 %end
